@@ -5,10 +5,12 @@ namespace App\Http\Controllers;
 use App\Models\ChartOfAccount;
 use App\Models\JournalEntry;
 use App\Models\JournalEntryLine;
+use App\Services\AccountingService;
 use Illuminate\Http\Request;
 
 class LedgerController extends Controller
 {
+    public function __construct(private AccountingService $accountingService) {}
     public function coa()
     {
         $accounts = ChartOfAccount::orderBy('code')->get()->groupBy('type');
@@ -27,6 +29,7 @@ class LedgerController extends Controller
             ->join('journal_entries', 'journal_entries.id', '=', 'journal_entry_lines.journal_entry_id')
             ->where('journal_entries.entry_date', '>=', $from)
             ->where('journal_entries.entry_date', '<=', $to)
+            ->whereIn('journal_entries.status', JournalEntry::ledgerStatuses())
             ->select('journal_entry_lines.*', 'journal_entries.entry_date', 'journal_entries.description as entry_desc');
 
         if ($accountId) {
@@ -54,5 +57,23 @@ class LedgerController extends Controller
         $entries = $isPrint ? $query->get() : $query->paginate(20)->withQueryString();
 
         return view('ledger.journal', compact('entries', 'from', 'to', 'isPrint'));
+    }
+
+    public function reverseJournal(Request $request, JournalEntry $journalEntry)
+    {
+        if (!auth()->user()?->isManager()) {
+            abort(403, 'Journal reversal requires manager authorization.');
+        }
+
+        $request->validate([
+            'reason' => 'nullable|string|max:255',
+        ]);
+
+        try {
+            $reversal = $this->accountingService->reverseJournal($journalEntry, $request->reason);
+            return back()->with('success', "Journal {$journalEntry->journal_number} reversed. Reversal entry: {$reversal->journal_number}");
+        } catch (\RuntimeException $e) {
+            return back()->with('error', $e->getMessage());
+        }
     }
 }

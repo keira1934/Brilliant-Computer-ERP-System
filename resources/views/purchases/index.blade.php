@@ -13,7 +13,7 @@
             </div>
             <select name="status" class="form-control" style="width:140px">
                 <option value="">All Status</option>
-                @foreach(['Draft','Ordered','Received','Cancelled'] as $s)
+                @foreach(['Draft','Pending Approval','Approved','Ordered','Received','Paid','Cancelled'] as $s)
                 <option value="{{ $s }}" {{ request('status')==$s?'selected':'' }}>{{ $s }}</option>
                 @endforeach
             </select>

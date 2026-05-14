@@ -18,6 +18,7 @@
                 <tr><td style="padding:5px 0;color:var(--gray-500)">Customer</td><td class="fw-semibold">{{ $sale->customer?->name ?? 'Walk-in Customer' }}</td></tr>
                 <tr><td style="padding:5px 0;color:var(--gray-500)">Date</td><td>{{ $sale->sale_date->format('d M Y') }}</td></tr>
                 <tr><td style="padding:5px 0;color:var(--gray-500)">Payment</td><td><span class="badge {{ $sale->payment_method === 'Cash' ? 'badge-success' : 'badge-navy' }}">{{ $sale->payment_method }}</span></td></tr>
+                <tr><td style="padding:5px 0;color:var(--gray-500)">Terms</td><td>{{ $sale->is_credit_sale ? 'Credit - '.$sale->payment_terms_days.' days' : 'Immediate collection' }}</td></tr>
                 <tr><td style="padding:5px 0;color:var(--gray-500)">Notes</td><td>{{ $sale->notes ?? '-' }}</td></tr>
             </table>
         </div>
@@ -38,11 +39,33 @@
             </div>
             <div class="alert alert-success" style="margin:0;font-size:12.5px">
                 <i class="bi bi-check-circle-fill"></i>
-                <span>Journal entries auto-posted: <strong>Dr {{ $sale->payment_method === 'Transfer' ? 'Bank' : 'Cash' }}</strong> / <strong>Cr Revenue</strong> + <strong>Dr COGS</strong> / <strong>Cr Inventory</strong></span>
+                <span>Journal entries auto-posted through AR invoice{{ $sale->is_credit_sale ? '' : ' and collection' }} plus COGS / Inventory.</span>
             </div>
         </div>
     </div>
 </div>
+
+@if($sale->arInvoices->count())
+<div class="card mb-5">
+    <div class="card-header"><h5 class="card-title">Receivable Link</h5></div>
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Invoice</th><th>Status</th><th class="text-right">Total</th><th class="text-right">Outstanding</th><th></th></tr></thead>
+            <tbody>
+            @foreach($sale->arInvoices as $invoice)
+            <tr>
+                <td class="font-mono td-primary">{{ $invoice->invoice_number }}</td>
+                <td><span class="badge {{ $invoice->status === 'Paid' ? 'badge-success' : 'badge-warning' }}">{{ $invoice->status }}</span></td>
+                <td class="text-right">Rp {{ number_format($invoice->total,0,',','.') }}</td>
+                <td class="text-right fw-bold">Rp {{ number_format($invoice->outstanding,0,',','.') }}</td>
+                <td><a href="{{ route('accounts-receivable.show', $invoice) }}" class="btn btn-sm btn-outline"><i class="bi bi-eye"></i></a></td>
+            </tr>
+            @endforeach
+            </tbody>
+        </table>
+    </div>
+</div>
+@endif
 
 <div class="card">
     <div class="card-header"><h5 class="card-title">Sold Items</h5></div>

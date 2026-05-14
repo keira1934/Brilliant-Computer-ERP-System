@@ -3,10 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\Product;
+use App\Services\AuditService;
 use Illuminate\Http\Request;
 
 class ProductController extends Controller
 {
+    public function __construct(private AuditService $auditService) {}
+
     public function index(Request $request)
     {
         $query = Product::query();
@@ -24,8 +27,9 @@ class ProductController extends Controller
 
     public function create()
     {
-        // Auto-suggest SKU prefix
-        $autoSku = 'PRD-' . str_pad(Product::count() + 1, 3, '0', STR_PAD_LEFT);
+        // UI suggestion only; the unique database constraint remains the source of truth.
+        $nextId = ((int) Product::max('id')) + 1;
+        $autoSku = 'PRD-' . str_pad($nextId, 3, '0', STR_PAD_LEFT);
         return view('products.create', compact('autoSku'));
     }
 
@@ -42,7 +46,9 @@ class ProductController extends Controller
             'min_stock'   => 'required|integer|min:0',
             'description' => 'nullable|string',
         ]);
-        Product::create($data);
+        $product = Product::create($data);
+        $this->auditService->logCreation('inventory', $product, "Product {$product->sku} created");
+
         return redirect()->route('products.index')->with('success', "Product '{$data['name']}' added successfully.");
     }
 
@@ -64,13 +70,19 @@ class ProductController extends Controller
             'min_stock'   => 'required|integer|min:0',
             'description' => 'nullable|string',
         ]);
+        $oldValues = $product->toArray();
         $product->update($data);
+        $this->auditService->logUpdate('inventory', $product, $oldValues, "Product {$product->sku} updated");
+
         return redirect()->route('products.index')->with('success', "Product '{$product->name}' updated successfully.");
     }
 
     public function destroy(Product $product)
     {
+        $oldValues = $product->toArray();
         $product->delete();
+        $this->auditService->log('inventory', 'soft_delete', $product, $oldValues, null, "Product {$product->sku} archived");
+
         return redirect()->route('products.index')->with('success', 'Product deleted.');
     }
 }

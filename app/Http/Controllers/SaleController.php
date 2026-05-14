@@ -38,6 +38,8 @@ class SaleController extends Controller
             'items.*.product_id'  => 'required|exists:products,id',
             'items.*.qty'         => 'required|integer|min:1',
             'items.*.unit_price'  => 'required|numeric|min:0',
+            'is_credit_sale'      => 'nullable|boolean',
+            'payment_terms_days'  => 'nullable|integer|min:0|max:365',
         ]);
 
         try {
@@ -51,7 +53,7 @@ class SaleController extends Controller
 
     public function show(Sale $sale)
     {
-        $sale->load('customer', 'items.product');
+        $sale->load('customer', 'items.product', 'arInvoices.payments');
         return view('sales.show', compact('sale'));
     }
 }

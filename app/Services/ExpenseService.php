@@ -8,7 +8,10 @@ use Illuminate\Support\Facades\DB;
 
 class ExpenseService
 {
-    public function __construct(private AccountingService $accounting) {}
+    public function __construct(
+        private AccountingService $accounting,
+        private AuditService $auditService
+    ) {}
 
     /** Map category to COA code */
     private static array $categoryAccountMap = [
@@ -52,6 +55,8 @@ class ExpenseService
                     ['code' => '1-1000',     'debit' => 0,               'credit' => $data['amount'], 'description' => 'Pengeluaran kas operasional'],
                 ]
             );
+
+            $this->auditService->logCreation('expense', $expense, "Expense {$expense->category} recorded and posted");
 
             return $expense;
         });

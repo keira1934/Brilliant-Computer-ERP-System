@@ -42,6 +42,16 @@
                     </select>
                     <div class="form-text">Leave blank to generate payroll for all active employees</div>
                 </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Allowances</label>
+                        <input name="allowances" type="number" min="0" step="0.01" value="0" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Deductions</label>
+                        <input name="deductions" type="number" min="0" step="0.01" value="0" class="form-control">
+                    </div>
+                </div>
                 <button type="submit" onclick="return confirm('Generate payroll and post journal entries?')" class="btn btn-primary w-100">
                     <i class="bi bi-currency-dollar"></i> Generate & Pay Salary
                 </button>

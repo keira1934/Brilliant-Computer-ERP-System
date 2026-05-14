@@ -18,6 +18,9 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
+        // 0. Users first (required for audit trail)
+        $this->call(UserSeeder::class);
+
         // 1. COA first (required by all services)
         $this->call(ChartOfAccountSeeder::class);
 

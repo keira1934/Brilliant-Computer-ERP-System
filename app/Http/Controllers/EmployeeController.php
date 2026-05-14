@@ -3,10 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\Employee;
+use App\Services\AuditService;
 use Illuminate\Http\Request;
 
 class EmployeeController extends Controller
 {
+    public function __construct(private AuditService $auditService) {}
+
     public function index()
     {
         $employees = Employee::orderBy('employee_code')->paginate(20);
@@ -38,7 +41,9 @@ class EmployeeController extends Controller
             'join_date'     => 'required|date',
         ]);
         $data['is_active'] = true;
-        Employee::create($data);
+        $employee = Employee::create($data);
+        $this->auditService->logCreation('employee', $employee, "Employee {$employee->employee_code} created");
+
         return redirect()->route('employees.index')->with('success', "Employee {$data['name']} added successfully.");
     }
 
@@ -62,13 +67,19 @@ class EmployeeController extends Controller
             'is_active'     => 'boolean',
         ]);
         $data['is_active'] = $request->boolean('is_active', true);
+        $oldValues = $employee->toArray();
         $employee->update($data);
+        $this->auditService->logUpdate('employee', $employee, $oldValues, "Employee {$employee->employee_code} updated");
+
         return redirect()->route('employees.index')->with('success', "Employee {$employee->name} updated successfully.");
     }
 
     public function destroy(Employee $employee)
     {
+        $oldValues = $employee->only(['is_active']);
         $employee->update(['is_active' => false]);
+        $this->auditService->logUpdate('employee', $employee, $oldValues, "Employee {$employee->employee_code} deactivated");
+
         return redirect()->route('employees.index')->with('success', "{$employee->name} has been deactivated.");
     }
 }

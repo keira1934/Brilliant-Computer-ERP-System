@@ -34,17 +34,21 @@ class PayrollController extends Controller
             'month'       => 'required|integer|min:1|max:12',
             'year'        => 'required|integer|min:2000|max:2099',
             'employee_id' => 'nullable|exists:employees,id',
+            'allowances'  => 'nullable|numeric|min:0',
+            'deductions'  => 'nullable|numeric|min:0',
         ]);
 
         $month = (int) $request->month;
         $year  = (int) $request->year;
+        $allowances = (float) ($request->allowances ?? 0);
+        $deductions = (float) ($request->deductions ?? 0);
 
         try {
             if ($request->employee_id) {
-                $this->payrollService->generatePayroll($request->employee_id, $month, $year);
+                $this->payrollService->generatePayroll($request->employee_id, $month, $year, $allowances, $deductions);
                 $msg = 'Payroll generated and journal posted successfully.';
             } else {
-                $result  = $this->payrollService->generateAllPayroll($month, $year);
+                $result  = $this->payrollService->generateAllPayroll($month, $year, $allowances, $deductions);
                 $created = count($result['created']);
                 $failed  = count($result['errors']);
                 $msg     = "{$created} payroll record(s) generated successfully.";

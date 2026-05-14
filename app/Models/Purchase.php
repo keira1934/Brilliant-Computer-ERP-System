@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class Purchase extends Model
 {
@@ -28,12 +29,25 @@ class Purchase extends Model
         return $this->hasMany(PurchaseItem::class);
     }
 
+    public function apInvoices(): HasMany
+    {
+        return $this->hasMany(ApInvoice::class);
+    }
+
+    public function approvals(): MorphMany
+    {
+        return $this->morphMany(Approval::class, 'approvable');
+    }
+
     public function getStatusBadgeClass(): string
     {
         return match ($this->status) {
             'Draft'      => 'badge status-draft',
+            'Pending Approval' => 'badge status-ordered',
+            'Approved'   => 'badge status-completed',
             'Ordered'    => 'badge status-ordered',
             'Received'   => 'badge status-completed',
+            'Paid'       => 'badge status-completed',
             'Cancelled'  => 'badge status-cancelled',
             default      => 'badge badge-gray',
         };

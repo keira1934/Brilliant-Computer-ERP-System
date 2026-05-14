@@ -3,10 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\Supplier;
+use App\Services\AuditService;
 use Illuminate\Http\Request;
 
 class SupplierController extends Controller
 {
+    public function __construct(private AuditService $auditService) {}
+
     public function index(Request $request)
     {
         $query = Supplier::query();
@@ -32,7 +35,9 @@ class SupplierController extends Controller
             'email'          => 'nullable|email|max:100',
             'address'        => 'nullable|string',
         ]);
-        Supplier::create($data);
+        $supplier = Supplier::create($data);
+        $this->auditService->logCreation('supplier', $supplier, "Supplier {$supplier->name} created");
+
         return redirect()->route('suppliers.index')->with('success', "Supplier '{$data['name']}' added successfully.");
     }
 
@@ -50,13 +55,19 @@ class SupplierController extends Controller
             'email'          => 'nullable|email|max:100',
             'address'        => 'nullable|string',
         ]);
+        $oldValues = $supplier->toArray();
         $supplier->update($data);
+        $this->auditService->logUpdate('supplier', $supplier, $oldValues, "Supplier {$supplier->name} updated");
+
         return redirect()->route('suppliers.index')->with('success', "Supplier '{$supplier->name}' updated successfully.");
     }
 
     public function destroy(Supplier $supplier)
     {
+        $oldValues = $supplier->toArray();
         $supplier->delete();
+        $this->auditService->log('supplier', 'soft_delete', $supplier, $oldValues, null, "Supplier {$supplier->name} archived");
+
         return redirect()->route('suppliers.index')->with('success', 'Supplier deleted.');
     }
 }
