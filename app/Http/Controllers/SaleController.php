@@ -14,7 +14,7 @@ class SaleController extends Controller
 
     public function index(Request $request)
     {
-        $query = Sale::with('customer')->latest();
+        $query = Sale::with('customer')->orderByDesc('sale_date')->orderByDesc('id');
         if ($request->from)   $query->where('sale_date', '>=', $request->from);
         if ($request->to)     $query->where('sale_date', '<=', $request->to);
         if ($request->search) $query->where('sale_number', 'like', "%{$request->search}%");

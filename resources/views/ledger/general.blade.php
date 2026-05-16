@@ -42,7 +42,7 @@
             <tbody>
             @forelse($isPrint ? $lines : $lines as $line)
             <tr>
-                <td class="td-muted font-mono">{{ $line->entry_date }}</td>
+                <td class="td-muted font-mono">{{ \Illuminate\Support\Carbon::parse($line->entry_date)->format('d/m/Y') }}<br><span style="font-size:11px">{{ $line->entry_created_at ? \Illuminate\Support\Carbon::parse($line->entry_created_at)->timezone(config('app.timezone'))->format('H:i:s') : '' }}</span></td>
                 <td class="td-muted font-mono" style="font-size:11px">{{ $line->journalEntry->reference_type }}-{{ $line->journalEntry->reference_id }}</td>
                 <td><span class="font-mono" style="font-size:12px">{{ $line->account->code }}</span><br><span class="td-muted" style="font-size:11px">{{ $line->account->name }}</span></td>
                 <td style="font-size:12.5px">{{ $line->entry_desc }}<br><span class="td-muted" style="font-size:11px">{{ $line->description }}</span></td>

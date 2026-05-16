@@ -9,7 +9,9 @@ class AuditLogController extends Controller
 {
     public function index(Request $request)
     {
-        $query = AuditLog::with('user')->latest('created_at');
+        $query = AuditLog::with('user')
+            ->orderByDesc('created_at')
+            ->orderByDesc('id');
 
         if ($request->module) {
             $query->where('module', $request->module);

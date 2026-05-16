@@ -11,7 +11,9 @@ class InventoryMovementController extends Controller
     public function index(Request $request)
     {
         $products = Product::orderBy('name')->get();
-        $query = InventoryMovement::with('product')->latest('movement_date')->latest('id');
+        $query = InventoryMovement::with('product')
+            ->orderByDesc('movement_date')
+            ->orderByDesc('id');
 
         if ($request->product_id) $query->where('product_id', $request->product_id);
         if ($request->type) $query->where('movement_type', $request->type);

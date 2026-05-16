@@ -17,7 +17,10 @@ class AdjustingEntryController extends Controller
 
     public function index()
     {
-        $entries = AdjustingEntry::with('journalEntry')->latest('adjustment_date')->paginate(20);
+        $entries = AdjustingEntry::with('journalEntry')
+            ->orderByDesc('adjustment_date')
+            ->orderByDesc('id')
+            ->paginate(20);
         return view('adjusting-entries.index', compact('entries'));
     }
 

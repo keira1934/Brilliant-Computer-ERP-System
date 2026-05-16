@@ -47,12 +47,12 @@ class ExpenseService
 
             $this->accounting->postJournal(
                 $data['expense_date'],
-                "Pengeluaran: {$data['category']}" . ($data['description'] ? " - {$data['description']}" : ''),
+                "Expense: {$data['category']}" . ($data['description'] ? " - {$data['description']}" : ''),
                 'Expense',
                 $expense->id,
                 [
                     ['code' => $accountCode, 'debit' => $data['amount'], 'credit' => 0,               'description' => $data['description'] ?? $data['category']],
-                    ['code' => '1-1000',     'debit' => 0,               'credit' => $data['amount'], 'description' => 'Pengeluaran kas operasional'],
+                    ['code' => '1-1000',     'debit' => 0,               'credit' => $data['amount'], 'description' => 'Operating cash disbursement'],
                 ]
             );
 

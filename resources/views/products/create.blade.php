@@ -12,9 +12,9 @@
             <div class="form-row">
                 <div class="form-group">
                     <label class="form-label">SKU <span class="required">*</span></label>
-                    <input name="sku" id="sku" value="{{ old('sku', $autoSku) }}" class="form-control @error('sku') is-invalid @enderror" required placeholder="e.g. LAP-001">
+                    <input name="sku" id="sku" value="{{ old('sku', $autoSku) }}" class="form-control @error('sku') is-invalid @enderror" readonly required placeholder="e.g. LAP-001">
                     @error('sku')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                    <div class="form-text">Must be unique. The code above is auto-suggested.</div>
+                    <div class="form-text">Auto-generated from the selected category.</div>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Category <span class="required">*</span></label>
@@ -70,15 +70,10 @@
 @push('scripts')
 <script>
 // Auto-update SKU prefix based on category selection
+var autoSkus = @json($autoSkus);
 document.getElementById('category').addEventListener('change', function() {
-    var prefixes = {Laptop:'LAP',Printer:'PRT',CPU:'CPU',Accessories:'ACC',Other:'OTH'};
-    var prefix = prefixes[this.value] || 'PRD';
     var skuEl = document.getElementById('sku');
-    // Only update if still auto-generated (starts with known prefix)
-    if (/^(LAP|PRT|CPU|ACC|OTH|PRD)-/.test(skuEl.value)) {
-        var num = skuEl.value.split('-').pop();
-        skuEl.value = prefix + '-' + num;
-    }
+    skuEl.value = autoSkus[this.value] || '';
 });
 </script>
 @endpush

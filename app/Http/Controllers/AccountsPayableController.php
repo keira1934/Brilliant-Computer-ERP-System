@@ -14,7 +14,9 @@ class AccountsPayableController extends Controller
     {
         $asOf = $request->as_of ?? now()->toDateString();
 
-        $query = ApInvoice::with('supplier', 'purchase')->latest('invoice_date');
+        $query = ApInvoice::with('supplier', 'purchase')
+            ->orderByDesc('invoice_date')
+            ->orderByDesc('id');
         if ($request->status) $query->where('status', $request->status);
         if ($request->search) {
             $query->where('invoice_number', 'like', "%{$request->search}%")

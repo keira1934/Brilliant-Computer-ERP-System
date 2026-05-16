@@ -46,7 +46,7 @@
                     <tr>
                         <td class="font-mono">{{ $account->code }}</td>
                         <td>{{ $account->name }}</td>
-                        <td class="text-right font-mono">{{ number_format($account->balance, 2) }}</td>
+                        <td class="text-right font-mono">{{ $account->balance < 0 ? '-' : '' }}{{ number_format(abs($account->balance), 2) }}</td>
                     </tr>
                     @endforeach
                 </tbody>

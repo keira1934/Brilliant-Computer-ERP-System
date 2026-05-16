@@ -3,7 +3,10 @@
 @section('content')
 <div class="page-header">
     <div><h1>Chart of Accounts (COA)</h1><p class="page-sub">Double-entry accounting account structure</p></div>
-    <a href="{{ request()->fullUrlWithQuery(['print'=>1]) }}" target="_blank" class="btn btn-outline"><i class="bi bi-printer"></i> Print</a>
+    <div class="page-header-actions">
+        <a href="{{ route('ledger.coa.create') }}" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Add Account</a>
+        <a href="{{ request()->fullUrlWithQuery(['print'=>1]) }}" target="_blank" class="btn btn-outline"><i class="bi bi-printer"></i> Print</a>
+    </div>
 </div>
 
 @php

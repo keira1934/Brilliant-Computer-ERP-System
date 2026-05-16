@@ -77,8 +77,14 @@ class ReportController extends Controller
                 ->whereIn('journal_entries.status', JournalEntry::ledgerStatuses())
                 ->whereBetween('journal_entries.entry_date', [$from, $to])
                 ->where('journal_entry_lines.debit', '>', 0)
-                ->select('journal_entry_lines.*', 'journal_entries.entry_date', 'journal_entries.description as entry_desc')
-                ->orderBy('journal_entries.entry_date')
+                ->select(
+                    'journal_entry_lines.*',
+                    'journal_entries.entry_date',
+                    'journal_entries.created_at as entry_created_at',
+                    'journal_entries.description as entry_desc'
+                )
+                ->orderByDesc('journal_entries.entry_date')
+                ->orderByDesc('journal_entries.id')
                 ->get();
 
             $outRows = JournalEntryLine::join('journal_entries', 'journal_entries.id', '=', 'journal_entry_lines.journal_entry_id')
@@ -86,16 +92,26 @@ class ReportController extends Controller
                 ->whereIn('journal_entries.status', JournalEntry::ledgerStatuses())
                 ->whereBetween('journal_entries.entry_date', [$from, $to])
                 ->where('journal_entry_lines.credit', '>', 0)
-                ->select('journal_entry_lines.*', 'journal_entries.entry_date', 'journal_entries.description as entry_desc')
-                ->orderBy('journal_entries.entry_date')
+                ->select(
+                    'journal_entry_lines.*',
+                    'journal_entries.entry_date',
+                    'journal_entries.created_at as entry_created_at',
+                    'journal_entries.description as entry_desc'
+                )
+                ->orderByDesc('journal_entries.entry_date')
+                ->orderByDesc('journal_entries.id')
                 ->get();
 
             $cashIn  = $cashIn->merge($inRows);
             $cashOut = $cashOut->merge($outRows);
         }
 
-        $cashIn  = $cashIn->sortBy('entry_date');
-        $cashOut = $cashOut->sortBy('entry_date');
+        $cashIn = $cashIn
+            ->sortByDesc(fn($row) => sprintf('%s-%010d-%010d', $row->entry_date, $row->journal_entry_id, $row->id))
+            ->values();
+        $cashOut = $cashOut
+            ->sortByDesc(fn($row) => sprintf('%s-%010d-%010d', $row->entry_date, $row->journal_entry_id, $row->id))
+            ->values();
 
         $totalIn  = $cashIn->sum('debit');
         $totalOut = $cashOut->sum('credit');
@@ -112,7 +128,8 @@ class ReportController extends Controller
 
         $query = JournalEntry::with('lines.account')
             ->whereBetween('entry_date', [$from, $to])
-            ->latest('entry_date');
+            ->orderByDesc('entry_date')
+            ->orderByDesc('id');
 
         $entries = $isPrint ? $query->get() : $query->paginate(20)->withQueryString();
 
@@ -180,6 +197,9 @@ class ReportController extends Controller
             ->where('is_active', true)->orderBy('code')->get()
             ->map(function ($account) use ($asOf) {
                 $account->balance = $account->getBalance(null, $asOf);
+                if ($account->normal_balance === 'credit') {
+                    $account->balance = -abs($account->balance);
+                }
                 return $account;
             });
 

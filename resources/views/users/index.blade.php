@@ -42,9 +42,9 @@
                             <a href="{{ route('users.edit', $user) }}" class="btn btn-sm btn-secondary"><i class="bi bi-pencil"></i></a>
                             @if($user->id !== auth()->id())
                             <form method="POST" action="{{ route('users.destroy', $user) }}" style="display:inline"
-                                  onsubmit="return confirm('Deactivate this user?')">
+                                  onsubmit="return confirm('Delete this user account?')">
                                 @csrf @method('DELETE')
-                                <button type="submit" class="btn btn-sm btn-danger"><i class="bi bi-person-x"></i></button>
+                                <button type="submit" class="btn btn-sm btn-danger" title="Delete Account"><i class="bi bi-trash"></i></button>
                             </form>
                             @endif
                         </div>
@@ -55,7 +55,7 @@
         </table>
     </div>
     @if($users->hasPages())
-    <div class="card-footer">{{ $users->links() }}</div>
+    <div class="card-footer">{{ $users->links('vendor.pagination.simple') }}</div>
     @endif
 </div>
 @endsection

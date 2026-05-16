@@ -98,6 +98,8 @@ Route::middleware('auth')->group(function () {
     Route::middleware('role:finance,manager')->group(function () {
         // Ledger
         Route::get('ledger/coa',     [LedgerController::class, 'coa'])->name('ledger.coa');
+        Route::get('ledger/coa/create', [LedgerController::class, 'createAccount'])->name('ledger.coa.create');
+        Route::post('ledger/coa', [LedgerController::class, 'storeAccount'])->name('ledger.coa.store');
         Route::get('ledger/general', [LedgerController::class, 'general'])->name('ledger.general');
         Route::get('ledger/journal', [LedgerController::class, 'journal'])->name('ledger.journal');
         Route::post('ledger/journal/{journalEntry}/reverse', [LedgerController::class, 'reverseJournal'])->name('ledger.journal.reverse');

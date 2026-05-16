@@ -17,6 +17,27 @@ class LedgerController extends Controller
         return view('ledger.coa', compact('accounts'));
     }
 
+    public function createAccount()
+    {
+        return view('ledger.coa-create');
+    }
+
+    public function storeAccount(Request $request)
+    {
+        $data = $request->validate([
+            'code' => 'required|string|max:20|unique:chart_of_accounts,code',
+            'name' => 'required|string|max:120',
+            'type' => 'required|in:asset,liability,equity,revenue,expense',
+            'normal_balance' => 'required|in:debit,credit',
+            'description' => 'nullable|string|max:255',
+        ]);
+
+        $data['is_active'] = true;
+        ChartOfAccount::create($data);
+
+        return redirect()->route('ledger.coa')->with('success', 'Chart of account added successfully.');
+    }
+
     public function general(Request $request)
     {
         $from      = $request->from ?? now()->startOfYear()->toDateString();
@@ -30,13 +51,18 @@ class LedgerController extends Controller
             ->where('journal_entries.entry_date', '>=', $from)
             ->where('journal_entries.entry_date', '<=', $to)
             ->whereIn('journal_entries.status', JournalEntry::ledgerStatuses())
-            ->select('journal_entry_lines.*', 'journal_entries.entry_date', 'journal_entries.description as entry_desc');
+            ->select(
+                'journal_entry_lines.*',
+                'journal_entries.entry_date',
+                'journal_entries.created_at as entry_created_at',
+                'journal_entries.description as entry_desc'
+            );
 
         if ($accountId) {
             $query->where('journal_entry_lines.account_id', $accountId);
         }
 
-        $query->orderBy('journal_entries.entry_date')->orderBy('journal_entries.id');
+        $query->orderByDesc('journal_entries.entry_date')->orderByDesc('journal_entries.id');
 
         $lines           = $isPrint ? $query->get() : $query->paginate(30)->withQueryString();
         $selectedAccount = $accountId ? ChartOfAccount::find($accountId) : null;
@@ -52,7 +78,8 @@ class LedgerController extends Controller
 
         $query = JournalEntry::with('lines.account')
             ->whereBetween('entry_date', [$from, $to])
-            ->latest('entry_date');
+            ->orderByDesc('entry_date')
+            ->orderByDesc('id');
 
         $entries = $isPrint ? $query->get() : $query->paginate(20)->withQueryString();
 

@@ -20,7 +20,7 @@ class PurchaseController extends Controller
 
     public function index(Request $request)
     {
-        $query = Purchase::with('supplier')->latest();
+        $query = Purchase::with('supplier')->orderByDesc('purchase_date')->orderByDesc('id');
         if ($request->status) $query->where('status', $request->status);
         if ($request->search) {
             $query->where('po_number', 'like', "%{$request->search}%");

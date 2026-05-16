@@ -83,12 +83,12 @@ class ServiceOrderService
 
             $this->accounting->postJournal(
                 $date,
-                "Pendapatan Servis #{$order->order_number}",
+                "Service Revenue #{$order->order_number}",
                 'ServiceOrder',
                 $order->id,
                 [
-                    ['code' => '1-1000', 'debit' => $cost, 'credit' => 0,    'description' => 'Penerimaan kas servis'],
-                    ['code' => '4-2000', 'debit' => 0,     'credit' => $cost,'description' => 'Pendapatan jasa servis'],
+                    ['code' => '1-1000', 'debit' => $cost, 'credit' => 0, 'description' => 'Cash receipt from service order'],
+                    ['code' => '4-2000', 'debit' => 0, 'credit' => $cost, 'description' => 'Service revenue'],
                 ]
             );
 

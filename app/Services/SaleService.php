@@ -110,17 +110,22 @@ class SaleService
                 );
             }
 
-            // AIS revenue cycle: invoice first, then settle AR if payment is immediate.
-            $invoice = $this->accountsReceivable->createInvoiceFromSale($sale);
+            if ($sale->is_credit_sale) {
+                $this->accountsReceivable->createInvoiceFromSale($sale);
+            } else {
+                $cashCode = $paymentMethod === 'Transfer' ? '1-1100' : '1-1000';
+                $paymentDesc = $paymentMethod === 'Transfer' ? 'Bank receipt from sale' : 'Cash receipt from sale';
 
-            if (!$sale->is_credit_sale) {
-                $this->accountsReceivable->recordPayment($invoice, [
-                    'payment_date' => $data['sale_date'],
-                    'amount' => $total,
-                    'payment_method' => $paymentMethod,
-                    'reference' => $sale->sale_number,
-                    'notes' => 'Immediate payment at sale',
-                ]);
+                $this->accounting->postJournal(
+                    $data['sale_date'],
+                    "Sale #{$sale->sale_number}",
+                    'Sale',
+                    $sale->id,
+                    [
+                        ['code' => $cashCode, 'debit' => $total, 'credit' => 0, 'description' => $paymentDesc],
+                        ['code' => '4-1000', 'debit' => 0, 'credit' => $total, 'description' => 'Product sales revenue'],
+                    ]
+                );
             }
 
             // Journal: Dr COGS / Cr Inventory

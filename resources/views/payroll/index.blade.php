@@ -110,7 +110,7 @@
                 <td class="text-right td-muted">{{ $p->deductions > 0 ? 'Rp '.number_format($p->deductions,0,',','.') : '-' }}</td>
                 <td class="text-right fw-bold">Rp {{ number_format($p->net_salary,0,',','.') }}</td>
                 <td><span class="badge {{ $p->status === 'Paid' ? 'badge-success' : 'badge-warning' }}">{{ $p->status }}</span></td>
-                <td class="td-muted">{{ $p->paid_at }}</td>
+                <td class="td-muted">{{ $p->paid_at?->format('d/m/Y') }}<br><span class="font-mono" style="font-size:11px">{{ $p->created_at?->timezone(config('app.timezone'))->format('H:i:s') }}</span></td>
             </tr>
             @empty
             <tr><td colspan="9"><div class="empty-state"><i class="bi bi-currency-dollar"></i><p>No payroll records for {{ $monthNames[$month-1] }} {{ $year }}.<br>Use the form above to generate payroll.</p></div></td></tr>

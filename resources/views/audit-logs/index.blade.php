@@ -75,7 +75,7 @@
         </table>
     </div>
     @if($logs->hasPages())
-    <div class="card-footer">{{ $logs->links() }}</div>
+    <div class="card-footer">{{ $logs->links('vendor.pagination.simple') }}</div>
     @endif
 </div>
 @endsection

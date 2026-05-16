@@ -32,10 +32,10 @@ class DashboardController extends Controller
 
         // Active service orders
         $activeOrders = ServiceOrder::whereIn('status', ['Received', 'InProgress'])
-            ->with('customer')->latest()->take(5)->get();
+            ->with('customer')->orderByDesc('received_at')->orderByDesc('id')->take(5)->get();
 
         // Recent sales
-        $recentSales = Sale::with('customer')->latest()->take(5)->get();
+        $recentSales = Sale::with('customer')->orderByDesc('sale_date')->orderByDesc('id')->take(5)->get();
 
         // Monthly Revenue vs Expenses chart (last 6 months)
         $chartData = $this->getMonthlyChartData();

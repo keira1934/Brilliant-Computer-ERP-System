@@ -120,15 +120,15 @@ class PurchaseService
 
             $purchase->update(['status' => 'Received']);
 
-            // Post journal: Dr Persediaan / Cr Hutang Usaha
+            // Post journal: Dr Inventory / Cr Accounts Payable
             $this->accounting->postJournal(
                 now()->toDateString(),
-                "Penerimaan Barang PO #{$purchase->po_number}",
+                "Goods Receipt PO #{$purchase->po_number}",
                 'Purchase',
                 $purchase->id,
                 [
-                    ['code' => '1-2000', 'debit' => $purchase->total, 'credit' => 0,                  'description' => 'Penambahan persediaan'],
-                    ['code' => '2-1000', 'debit' => 0,                'credit' => $purchase->total,   'description' => 'Hutang usaha ke supplier'],
+                    ['code' => '1-2000', 'debit' => $purchase->total, 'credit' => 0, 'description' => 'Inventory received'],
+                    ['code' => '2-1000', 'debit' => 0, 'credit' => $purchase->total, 'description' => 'Accounts payable to supplier'],
                 ]
             );
 

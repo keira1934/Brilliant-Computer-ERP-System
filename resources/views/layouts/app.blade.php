@@ -201,6 +201,13 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="{{ asset('js/app.js') }}"></script>
+@if(request()->boolean('print'))
+<script>
+window.addEventListener('load', function () {
+    setTimeout(function () { window.print(); }, 250);
+});
+</script>
+@endif
 @stack('scripts')
 </body>
 </html>

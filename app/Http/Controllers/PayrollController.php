@@ -19,7 +19,8 @@ class PayrollController extends Controller
         $payrolls  = Payroll::with('employee')
             ->where('period_month', $month)
             ->where('period_year', $year)
-            ->orderBy('id')
+            ->orderByDesc('paid_at')
+            ->orderByDesc('id')
             ->get();
 
         $employees = Employee::where('is_active', true)->orderBy('name')->get();

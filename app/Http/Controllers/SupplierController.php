@@ -17,7 +17,7 @@ class SupplierController extends Controller
             $query->where('name', 'like', "%{$request->search}%")
                   ->orWhere('contact_person', 'like', "%{$request->search}%");
         }
-        $suppliers = $query->latest()->paginate(15)->withQueryString();
+        $suppliers = $query->orderBy('name')->paginate(15)->withQueryString();
         return view('suppliers.index', compact('suppliers'));
     }
 

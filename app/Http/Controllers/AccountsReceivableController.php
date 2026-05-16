@@ -14,7 +14,9 @@ class AccountsReceivableController extends Controller
     {
         $asOf = $request->as_of ?? now()->toDateString();
 
-        $query = ArInvoice::with('customer', 'sale')->latest('invoice_date');
+        $query = ArInvoice::with('customer', 'sale')
+            ->orderByDesc('invoice_date')
+            ->orderByDesc('id');
         if ($request->status) $query->where('status', $request->status);
         if ($request->search) {
             $query->where('invoice_number', 'like', "%{$request->search}%")

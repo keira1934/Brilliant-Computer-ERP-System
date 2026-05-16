@@ -35,7 +35,7 @@
                 <tbody>
                 @forelse($cashIn as $row)
                 <tr>
-                    <td class="td-muted font-mono">{{ $row->entry_date }}</td>
+                    <td class="td-muted font-mono">{{ \Illuminate\Support\Carbon::parse($row->entry_date)->format('d/m/Y') }}<br><span style="font-size:11px">{{ $row->entry_created_at ? \Illuminate\Support\Carbon::parse($row->entry_created_at)->timezone(config('app.timezone'))->format('H:i:s') : '' }}</span></td>
                     <td style="font-size:12.5px">{{ $row->entry_desc }}</td>
                     <td class="text-right fw-semibold text-success">Rp {{ number_format($row->debit,0,',','.') }}</td>
                 </tr>
@@ -58,7 +58,7 @@
                 <tbody>
                 @forelse($cashOut as $row)
                 <tr>
-                    <td class="td-muted font-mono">{{ $row->entry_date }}</td>
+                    <td class="td-muted font-mono">{{ \Illuminate\Support\Carbon::parse($row->entry_date)->format('d/m/Y') }}<br><span style="font-size:11px">{{ $row->entry_created_at ? \Illuminate\Support\Carbon::parse($row->entry_created_at)->timezone(config('app.timezone'))->format('H:i:s') : '' }}</span></td>
                     <td style="font-size:12.5px">{{ $row->entry_desc }}</td>
                     <td class="text-right fw-semibold text-danger">Rp {{ number_format($row->credit,0,',','.') }}</td>
                 </tr>

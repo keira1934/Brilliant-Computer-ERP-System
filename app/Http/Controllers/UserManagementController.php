@@ -14,7 +14,7 @@ class UserManagementController extends Controller
 
     public function index()
     {
-        $users = User::orderBy('name')->paginate(20);
+        $users = User::orderByDesc('id')->paginate(20);
         return view('users.index', compact('users'));
     }
 
@@ -66,7 +66,7 @@ class UserManagementController extends Controller
             unset($data['password']);
         }
 
-        $data['is_active'] = $request->boolean('is_active', true);
+        $data['is_active'] = $request->boolean('is_active');
         $user->update($data);
 
         $this->auditService->logUpdate('user_management', $user, $oldValues, "User '{$user->name}' updated");
@@ -81,11 +81,13 @@ class UserManagementController extends Controller
             return back()->with('error', 'You cannot deactivate your own account.');
         }
 
+        $oldValues = $user->only(['name', 'email', 'role', 'is_active']);
         $user->update(['is_active' => false]);
+        $user->delete();
 
-        $this->auditService->logStatusChange('user_management', $user, 'deactivate', "User '{$user->name}' deactivated");
+        $this->auditService->log('user_management', 'soft_delete', $user, $oldValues, null, "User '{$user->name}' deleted");
 
         return redirect()->route('users.index')
-            ->with('success', "User '{$user->name}' has been deactivated.");
+            ->with('success', "User '{$user->name}' has been deleted.");
     }
 }
