@@ -46,7 +46,9 @@
                     <tr>
                         <td class="font-mono">{{ $account->code }}</td>
                         <td>{{ $account->name }}</td>
-                        <td class="text-right font-mono">{{ $account->balance < 0 ? '-' : '' }}{{ number_format(abs($account->balance), 2) }}</td>
+                        <td class="text-right font-mono {{ $account->balance < 0 ? 'text-danger' : '' }}">
+                            {{ $account->balance < 0 ? '(' . number_format(abs($account->balance), 2) . ')' : number_format($account->balance, 2) }}
+                        </td>
                     </tr>
                     @endforeach
                 </tbody>
@@ -135,4 +137,18 @@
         <span class="eq-value">Rp {{ number_format($totalEquity, 2) }}</span>
     </div>
 </div>
+
+@php
+    $hasOpeningBalances = \App\Models\ChartOfAccount::where('opening_balance', '!=', 0)->exists();
+@endphp
+@if(!$hasOpeningBalances)
+<div class="alert alert-warning" style="margin-top:16px">
+    <i class="bi bi-info-circle-fill"></i>
+    <span>
+        <strong>No opening balances set.</strong>
+        If Cash or Bank balances appear negative, it may be because no beginning balances have been entered.
+        <a href="{{ route('ledger.coa') }}" style="color:inherit;font-weight:700;text-decoration:underline">Set opening balances in Chart of Accounts →</a>
+    </span>
+</div>
+@endif
 @endsection

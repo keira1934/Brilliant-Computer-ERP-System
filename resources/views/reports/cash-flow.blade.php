@@ -20,7 +20,7 @@
 <div class="grid-3 mb-5">
     <div class="kpi-card"><span class="kpi-label">Total Cash In</span><div class="kpi-value text-success">Rp {{ number_format($totalIn,0,',','.') }}</div></div>
     <div class="kpi-card"><span class="kpi-label">Total Cash Out</span><div class="kpi-value text-danger">Rp {{ number_format($totalOut,0,',','.') }}</div></div>
-    <div class="kpi-card"><span class="kpi-label">Net Cash Position</span><div class="kpi-value {{ $netCash >= 0 ? 'text-success' : 'text-danger' }}">Rp {{ number_format($netCash,0,',','.') }}</div></div>
+    <div class="kpi-card"><span class="kpi-label">Net Cash InFlow</span><div class="kpi-value {{ $netCash >= 0 ? 'text-success' : 'text-danger' }}">Rp {{ number_format($netCash,0,',','.') }}</div></div>
 </div>
 
 <div class="grid-2">

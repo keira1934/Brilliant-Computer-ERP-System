@@ -38,7 +38,9 @@
             <tr class="{{ $p->isLowStock() ? 'low-stock-row' : '' }}">
                 <td class="font-mono td-muted">{{ $p->sku }}</td>
                 <td class="td-primary">
-                    {{ $p->name }}
+                    <a href="{{ route('products.show', $p) }}" style="color:var(--navy-800);font-weight:600;text-decoration:none" onmouseover="this.style.color='var(--navy-500)'" onmouseout="this.style.color='var(--navy-800)'">
+                        {{ $p->name }}
+                    </a>
                     @if($p->isLowStock())<span class="badge badge-warning" style="margin-left:6px"><i class="bi bi-exclamation-triangle"></i> Low Stock</span>@endif
                 </td>
                 <td><span class="badge badge-navy">{{ $p->category }}</span></td>
@@ -48,6 +50,7 @@
                 <td class="text-right td-muted">{{ $p->min_stock }}</td>
                 <td>
                     <div class="flex gap-2">
+                        <a href="{{ route('products.show', $p) }}" class="btn btn-sm btn-outline" title="View Detail"><i class="bi bi-eye"></i></a>
                         <a href="{{ route('products.edit', $p) }}" class="btn btn-sm btn-secondary"><i class="bi bi-pencil"></i></a>
                         <button onclick="deleteRecord('{{ route('products.destroy', $p) }}', 'Delete product &quot;{{ addslashes($p->name) }}&quot;?')" class="btn btn-sm btn-danger"><i class="bi bi-trash"></i></button>
                     </div>
