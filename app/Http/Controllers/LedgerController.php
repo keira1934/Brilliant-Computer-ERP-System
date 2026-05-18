@@ -38,6 +38,30 @@ class LedgerController extends Controller
         return redirect()->route('ledger.coa')->with('success', 'Chart of account added successfully.');
     }
 
+    /**
+     * Update the opening / beginning balance for a single COA account.
+     * This does NOT post a journal entry — the opening balance is stored directly
+     * on the account and factored into getBalance() for cumulative reports.
+     */
+    public function updateOpeningBalance(Request $request, ChartOfAccount $account)
+    {
+        $data = $request->validate([
+            'opening_balance'      => 'required|numeric',
+            'opening_balance_date' => 'nullable|date',
+        ]);
+
+        // Prevent duplicate: if an opening balance already exists and is being changed,
+        // just update the stored value — no journal entry is created.
+        $account->update([
+            'opening_balance'      => (float) $data['opening_balance'],
+            'opening_balance_date' => $data['opening_balance_date'] ?? null,
+        ]);
+
+        $label = number_format((float) $data['opening_balance'], 2);
+        return redirect()->route('ledger.coa')
+            ->with('success', "Opening balance for \"{$account->name}\" set to Rp {$label}.");
+    }
+
     public function general(Request $request)
     {
         $from      = $request->from ?? now()->startOfYear()->toDateString();

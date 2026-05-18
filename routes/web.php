@@ -49,6 +49,7 @@ Route::middleware('auth')->group(function () {
     Route::middleware('role:finance,cashier,manager')->group(function () {
         // Customers
         Route::resource('customers', CustomerController::class)->except(['show']);
+        Route::get('customers/{customer}', [CustomerController::class, 'show'])->name('customers.show');
 
         // Service Orders
         Route::resource('service-orders', ServiceOrderController::class)->except(['edit', 'update', 'destroy']);
@@ -72,6 +73,7 @@ Route::middleware('auth')->group(function () {
     */
     Route::middleware('role:inventory,manager,finance')->group(function () {
         Route::resource('products', ProductController::class)->except(['show']);
+        Route::get('products/{product}', [ProductController::class, 'show'])->name('products.show');
         Route::get('inventory-movements', [InventoryMovementController::class, 'index'])->name('inventory-movements.index');
     });
 
@@ -82,6 +84,7 @@ Route::middleware('auth')->group(function () {
     */
     Route::middleware('role:finance,inventory,manager')->group(function () {
         Route::resource('suppliers', SupplierController::class)->except(['show']);
+        Route::get('suppliers/{supplier}', [SupplierController::class, 'show'])->name('suppliers.show');
         Route::resource('purchases', PurchaseController::class)->only(['index', 'create', 'store', 'show']);
         Route::post('purchases/{purchase}/receive', [PurchaseController::class, 'receive'])->name('purchases.receive');
         Route::post('purchases/{purchase}/approve', [PurchaseController::class, 'approve'])
@@ -100,6 +103,7 @@ Route::middleware('auth')->group(function () {
         Route::get('ledger/coa',     [LedgerController::class, 'coa'])->name('ledger.coa');
         Route::get('ledger/coa/create', [LedgerController::class, 'createAccount'])->name('ledger.coa.create');
         Route::post('ledger/coa', [LedgerController::class, 'storeAccount'])->name('ledger.coa.store');
+        Route::patch('ledger/coa/{account}/opening-balance', [LedgerController::class, 'updateOpeningBalance'])->name('ledger.coa.opening-balance');
         Route::get('ledger/general', [LedgerController::class, 'general'])->name('ledger.general');
         Route::get('ledger/journal', [LedgerController::class, 'journal'])->name('ledger.journal');
         Route::post('ledger/journal/{journalEntry}/reverse', [LedgerController::class, 'reverseJournal'])->name('ledger.journal.reverse');
@@ -134,6 +138,7 @@ Route::middleware('auth')->group(function () {
     */
     Route::middleware('role:hr,manager')->group(function () {
         Route::resource('employees', EmployeeController::class)->except(['show']);
+        Route::get('employees/{employee}', [EmployeeController::class, 'show'])->name('employees.show');
         Route::get('payroll',           [PayrollController::class, 'index'])->name('payroll.index');
         Route::post('payroll/generate', [PayrollController::class, 'generate'])->name('payroll.generate');
     });

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Customer;
 use App\Services\AuditService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class CustomerController extends Controller
 {
@@ -20,6 +21,39 @@ class CustomerController extends Controller
         }
         $customers = $query->orderBy('name')->paginate(15)->withQueryString();
         return view('customers.index', compact('customers'));
+    }
+
+    public function show(Customer $customer)
+    {
+        $sales = $customer->sales()
+            ->orderByDesc('sale_date')
+            ->orderByDesc('id')
+            ->limit(20)
+            ->get();
+
+        $serviceOrders = $customer->serviceOrders()
+            ->orderByDesc('received_at')
+            ->orderByDesc('id')
+            ->limit(10)
+            ->get();
+
+        $arInvoices = $customer->arInvoices()
+            ->orderByDesc('invoice_date')
+            ->orderByDesc('id')
+            ->limit(10)
+            ->get();
+
+        $totalSales        = $customer->sales()->sum('total');
+        $totalTransactions = $customer->sales()->count();
+        $totalServiceOrders= $customer->serviceOrders()->count();
+        $outstandingAR     = $customer->arInvoices()
+            ->whereIn('status', ['Open', 'Partially Paid'])
+            ->sum(\Illuminate\Support\Facades\DB::raw('total - paid_amount'));
+
+        return view('customers.show', compact(
+            'customer', 'sales', 'serviceOrders', 'arInvoices',
+            'totalSales', 'totalTransactions', 'totalServiceOrders', 'outstandingAR'
+        ));
     }
 
     public function create()

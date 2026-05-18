@@ -21,6 +21,39 @@ class SupplierController extends Controller
         return view('suppliers.index', compact('suppliers'));
     }
 
+    public function show(Supplier $supplier)
+    {
+        $purchases = $supplier->purchases()
+            ->with('items.product')
+            ->orderByDesc('purchase_date')
+            ->orderByDesc('id')
+            ->limit(20)
+            ->get();
+
+        $apInvoices = $supplier->apInvoices()
+            ->orderByDesc('invoice_date')
+            ->orderByDesc('id')
+            ->limit(10)
+            ->get();
+
+        $totalPurchases     = $supplier->purchases()->sum('total');
+        $totalOrders        = $supplier->purchases()->count();
+        $outstandingAP      = $supplier->apInvoices()
+            ->whereIn('status', ['Open', 'Partially Paid'])
+            ->sum(\Illuminate\Support\Facades\DB::raw('total - paid_amount'));
+
+        // Products purchased from this supplier (distinct)
+        $productIds = \App\Models\PurchaseItem::whereHas('purchase', fn($q) => $q->where('supplier_id', $supplier->id))
+            ->distinct()
+            ->pluck('product_id');
+        $products = \App\Models\Product::withTrashed()->whereIn('id', $productIds)->get();
+
+        return view('suppliers.show', compact(
+            'supplier', 'purchases', 'apInvoices',
+            'totalPurchases', 'totalOrders', 'outstandingAP', 'products'
+        ));
+    }
+
     public function create()
     {
         return view('suppliers.create');

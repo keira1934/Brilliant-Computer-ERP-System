@@ -21,13 +21,18 @@
             @forelse($suppliers as $s)
             <tr>
                 <td class="td-muted">{{ $suppliers->firstItem() + $loop->index }}</td>
-                <td class="td-primary">{{ $s->name }}</td>
+                <td class="td-primary">
+                    <a href="{{ route('suppliers.show', $s) }}" style="color:var(--navy-800);font-weight:600;text-decoration:none" onmouseover="this.style.color='var(--navy-500)'" onmouseout="this.style.color='var(--navy-800)'">
+                        {{ $s->name }}
+                    </a>
+                </td>
                 <td>{{ $s->contact_person ?? '-' }}</td>
                 <td>{{ $s->phone ?? '-' }}</td>
                 <td class="td-muted">{{ $s->email ?? '-' }}</td>
                 <td class="td-muted">{{ Str::limit($s->address,40) ?? '-' }}</td>
                 <td>
                     <div class="flex gap-2">
+                        <a href="{{ route('suppliers.show', $s) }}" class="btn btn-sm btn-outline" title="View Detail"><i class="bi bi-eye"></i></a>
                         <a href="{{ route('suppliers.edit', $s) }}" class="btn btn-sm btn-secondary"><i class="bi bi-pencil"></i></a>
                         <button onclick="deleteRecord('{{ route('suppliers.destroy', $s) }}', 'Delete supplier &quot;{{ addslashes($s->name) }}&quot;?')" class="btn btn-sm btn-danger"><i class="bi bi-trash"></i></button>
                     </div>

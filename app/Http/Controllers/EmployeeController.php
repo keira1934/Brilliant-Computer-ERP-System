@@ -17,6 +17,17 @@ class EmployeeController extends Controller
         return view('employees.index', compact('employees'));
     }
 
+    public function show(Employee $employee)
+    {
+        $employee->load('payrolls');
+        $recentPayrolls = $employee->payrolls()
+            ->orderByDesc('period_year')
+            ->orderByDesc('period_month')
+            ->limit(6)
+            ->get();
+        return view('employees.show', compact('employee', 'recentPayrolls'));
+    }
+
     public function create()
     {
         $autoCode = $this->previewEmployeeCode();

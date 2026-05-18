@@ -186,20 +186,19 @@ class ReportController extends Controller
 
     /**
      * Balance Sheet — Assets = Liabilities + Equity (must balance).
-     * Dynamically generated from posted journal data.
+     * Dynamically generated from posted journal data + opening balances.
      */
     public function balanceSheet(Request $request)
     {
         $asOf    = $request->as_of ?? now()->toDateString();
         $isPrint = (bool) $request->print;
 
+        // Assets: debit-normal accounts show positive when debit > credit.
+        // getBalance() already handles normal_balance sign — no extra negation needed.
         $assetAccounts = ChartOfAccount::where('type', 'asset')
             ->where('is_active', true)->orderBy('code')->get()
             ->map(function ($account) use ($asOf) {
                 $account->balance = $account->getBalance(null, $asOf);
-                if ($account->normal_balance === 'credit') {
-                    $account->balance = -abs($account->balance);
-                }
                 return $account;
             });
 

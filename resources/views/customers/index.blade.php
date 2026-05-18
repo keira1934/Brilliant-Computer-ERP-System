@@ -22,12 +22,17 @@
             @forelse($customers as $c)
             <tr>
                 <td class="td-muted">{{ $customers->firstItem() + $loop->index }}</td>
-                <td class="td-primary">{{ $c->name }}</td>
+                <td class="td-primary">
+                    <a href="{{ route('customers.show', $c) }}" style="color:var(--navy-800);font-weight:600;text-decoration:none" onmouseover="this.style.color='var(--navy-500)'" onmouseout="this.style.color='var(--navy-800)'">
+                        {{ $c->name }}
+                    </a>
+                </td>
                 <td>{{ $c->phone ?? '-' }}</td>
                 <td class="td-muted">{{ $c->email ?? '-' }}</td>
                 <td class="td-muted">{{ Str::limit($c->address, 40) ?? '-' }}</td>
                 <td>
                     <div class="flex gap-2">
+                        <a href="{{ route('customers.show', $c) }}" class="btn btn-sm btn-outline" title="View Detail"><i class="bi bi-eye"></i></a>
                         <a href="{{ route('customers.edit', $c) }}" class="btn btn-sm btn-secondary"><i class="bi bi-pencil"></i></a>
                         <button onclick="deleteRecord('{{ route('customers.destroy', $c) }}', 'Delete customer {{ addslashes($c->name) }}?')" class="btn btn-sm btn-danger"><i class="bi bi-trash"></i></button>
                     </div>

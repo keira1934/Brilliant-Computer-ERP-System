@@ -73,6 +73,35 @@ class ProductController extends Controller
         return view('products.edit', compact('product'));
     }
 
+    public function show(Product $product)
+    {
+        $movements = $product->inventoryMovements()
+            ->orderByDesc('movement_date')
+            ->orderByDesc('id')
+            ->limit(20)
+            ->get();
+
+        $purchaseItems = $product->purchaseItems()
+            ->with('purchase.supplier')
+            ->orderByDesc('created_at')
+            ->limit(10)
+            ->get();
+
+        $saleItems = $product->saleItems()
+            ->with('sale.customer')
+            ->orderByDesc('created_at')
+            ->limit(10)
+            ->get();
+
+        // Primary supplier (most recent purchase)
+        $primarySupplier = \App\Models\Supplier::whereHas('purchases.items', fn($q) => $q->where('product_id', $product->id))
+            ->withCount(['purchases as purchase_count' => fn($q) => $q->whereHas('items', fn($q2) => $q2->where('product_id', $product->id))])
+            ->orderByDesc('purchase_count')
+            ->first();
+
+        return view('products.show', compact('product', 'movements', 'purchaseItems', 'saleItems', 'primarySupplier'));
+    }
+
     public function update(Request $request, Product $product)
     {
         $data = $request->validate([
