@@ -30,8 +30,8 @@
                 </a>
             </div>
 
-            <div class="nav-section">Sales & Service</div>
             @if(auth()->user()->hasRole('finance', 'cashier', 'manager'))
+            <div class="nav-section">Sales & Service</div>
             <div class="nav-item">
                 <a href="#" class="nav-link has-submenu" data-submenu="menu-sales">
                     <i class="bi bi-shop"></i><span>Sales & Service</span>
@@ -46,8 +46,8 @@
             </div>
             @endif
 
-            <div class="nav-section">Inventory</div>
             @if(auth()->user()->hasRole('inventory', 'manager', 'finance'))
+            <div class="nav-section">Inventory</div>
             <div class="nav-item">
                 <a href="{{ route('products.index') }}" class="nav-link {{ request()->routeIs('products.*') ? 'active' : '' }}">
                     <i class="bi bi-box-seam"></i><span>Product Catalog</span>
@@ -60,8 +60,8 @@
             </div>
             @endif
 
-            <div class="nav-section">Purchasing</div>
             @if(auth()->user()->hasRole('finance', 'inventory', 'manager'))
+            <div class="nav-section">Purchasing</div>
             <div class="nav-item">
                 <a href="#" class="nav-link has-submenu" data-submenu="menu-purchase">
                     <i class="bi bi-cart3"></i><span>Purchasing</span>
@@ -74,8 +74,8 @@
             </div>
             @endif
 
-            <div class="nav-section">Finance & Accounting</div>
             @if(auth()->user()->hasRole('finance', 'manager'))
+            <div class="nav-section">Finance & Accounting</div>
             <div class="nav-item">
                 <a href="#" class="nav-link has-submenu" data-submenu="menu-finance">
                     <i class="bi bi-calculator"></i><span>Accounting</span>
@@ -112,8 +112,8 @@
             </div>
             @endif
 
-            <div class="nav-section">HR & Payroll</div>
             @if(auth()->user()->hasRole('hr', 'manager'))
+            <div class="nav-section">HR & Payroll</div>
             <div class="nav-item">
                 <a href="#" class="nav-link has-submenu" data-submenu="menu-hr">
                     <i class="bi bi-people"></i><span>HR & Payroll</span>
