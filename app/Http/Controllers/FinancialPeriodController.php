@@ -26,8 +26,13 @@ class FinancialPeriodController extends Controller
 
     public function index()
     {
-        $periods = FinancialPeriod::orderByDesc('start_date')->paginate(20);
-        return view('financial-periods.index', compact('periods'));
+        // Group periods by year so the view can render year-folder accordion
+        $periodsByYear = FinancialPeriod::orderByDesc('start_date')
+            ->get()
+            ->groupBy(fn($p) => $p->start_date->format('Y'))
+            ->sortKeysDesc();
+
+        return view('financial-periods.index', compact('periodsByYear'));
     }
 
     public function show(FinancialPeriod $period)
