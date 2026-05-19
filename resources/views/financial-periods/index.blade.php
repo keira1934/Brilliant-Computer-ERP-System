@@ -9,7 +9,7 @@
     </div>
 </div>
 
-<div class="content-grid" style="display:grid; grid-template-columns:380px 1fr; gap:24px; align-items:start;">
+<div class="content-grid">
 
     {{-- ── Create Form ─────────────────────────────────────────────────── --}}
     <div class="card">
@@ -77,6 +77,7 @@
 
             {{-- Month rows (collapsible) --}}
             <div id="year-{{ $year }}" style="{{ $expanded ? '' : 'display:none' }}">
+                <div class="table-wrap">
                 <table class="data-table" style="margin:0">
                     <thead>
                         <tr>
@@ -144,6 +145,7 @@
                         @endforeach
                     </tbody>
                 </table>
+                </div>
             </div>
         </div>
         @empty
