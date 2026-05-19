@@ -17,11 +17,25 @@
     </div>
 </div>
 
-<div class="grid-3 mb-5">
+<div class="grid-5 mb-5">
+    <div class="kpi-card"><span class="kpi-label">Opening Cash</span><div class="kpi-value text-navy">Rp {{ number_format($openingCash,0,',','.') }}</div></div>
     <div class="kpi-card"><span class="kpi-label">Total Cash In</span><div class="kpi-value text-success">Rp {{ number_format($totalIn,0,',','.') }}</div></div>
     <div class="kpi-card"><span class="kpi-label">Total Cash Out</span><div class="kpi-value text-danger">Rp {{ number_format($totalOut,0,',','.') }}</div></div>
     <div class="kpi-card"><span class="kpi-label">Net Cash InFlow</span><div class="kpi-value {{ $netCash >= 0 ? 'text-success' : 'text-danger' }}">Rp {{ number_format($netCash,0,',','.') }}</div></div>
+    <div class="kpi-card"><span class="kpi-label">Ending Cash</span><div class="kpi-value text-navy">Rp {{ number_format($endingCash,0,',','.') }}</div></div>
 </div>
+
+@if(round($endingCash, 2) !== round($balanceSheetCash, 2))
+<div class="alert alert-danger">
+    <i class="bi bi-exclamation-triangle-fill"></i>
+    <span>Cash flow ending cash does not match Balance Sheet cash. Cash Flow: Rp {{ number_format($endingCash, 2) }}, Balance Sheet: Rp {{ number_format($balanceSheetCash, 2) }}.</span>
+</div>
+@else
+<div class="alert alert-success">
+    <i class="bi bi-check-circle-fill"></i>
+    <span>Cash Flow reconciles with Balance Sheet cash: Rp {{ number_format($endingCash, 2) }}.</span>
+</div>
+@endif
 
 <div class="grid-2">
     <div class="card">

@@ -7,6 +7,7 @@ use App\Models\JournalEntry;
 use App\Models\JournalEntryLine;
 use App\Services\AccountingService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 
 class LedgerController extends Controller
 {
@@ -52,10 +53,16 @@ class LedgerController extends Controller
 
         // Prevent duplicate: if an opening balance already exists and is being changed,
         // just update the stored value — no journal entry is created.
-        $account->update([
-            'opening_balance'      => (float) $data['opening_balance'],
-            'opening_balance_date' => $data['opening_balance_date'] ?? null,
-        ]);
+        try {
+            $account->update([
+                'opening_balance'      => (float) $data['opening_balance'],
+                'opening_balance_date' => $data['opening_balance_date'] ?? null,
+            ]);
+
+            $this->accountingService->syncOpeningBalanceJournal();
+        } catch (\RuntimeException $e) {
+            return back()->with('error', $e->getMessage())->withInput();
+        }
 
         $label = number_format((float) $data['opening_balance'], 2);
         return redirect()->route('ledger.coa')
@@ -90,8 +97,27 @@ class LedgerController extends Controller
 
         $lines           = $isPrint ? $query->get() : $query->paginate(30)->withQueryString();
         $selectedAccount = $accountId ? ChartOfAccount::find($accountId) : null;
+        $openingBalance  = null;
+        $endingBalance   = null;
 
-        return view('ledger.general', compact('lines', 'accounts', 'from', 'to', 'accountId', 'selectedAccount', 'isPrint'));
+        if ($selectedAccount) {
+            $openingBalance = $selectedAccount->getBalance(null, Carbon::parse($from)->subDay()->toDateString());
+            $endingBalance = $selectedAccount->getBalance(null, $to);
+            $running = $openingBalance;
+
+            $orderedLines = ($isPrint ? $lines : $lines->getCollection())
+                ->sortBy(fn($line) => sprintf('%s-%010d-%010d', $line->entry_date, $line->journal_entry_id, $line->id));
+
+            foreach ($orderedLines as $line) {
+                $delta = $selectedAccount->normal_balance === 'debit'
+                    ? ((float) $line->debit - (float) $line->credit)
+                    : ((float) $line->credit - (float) $line->debit);
+                $running += $delta;
+                $line->running_balance = $running;
+            }
+        }
+
+        return view('ledger.general', compact('lines', 'accounts', 'from', 'to', 'accountId', 'selectedAccount', 'openingBalance', 'endingBalance', 'isPrint'));
     }
 
     public function journal(Request $request)

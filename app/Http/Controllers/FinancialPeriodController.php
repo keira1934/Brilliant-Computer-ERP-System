@@ -2,24 +2,81 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ApInvoice;
+use App\Models\ArInvoice;
+use App\Models\ChartOfAccount;
+use App\Models\ClosingEntry;
 use App\Models\FinancialPeriod;
 use App\Models\JournalEntry;
 use App\Models\JournalEntryLine;
+use App\Models\Product;
+use App\Services\AccountingService;
 use App\Services\AuditService;
 use App\Services\PeriodClosingService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class FinancialPeriodController extends Controller
 {
     public function __construct(
         private AuditService $auditService,
-        private PeriodClosingService $periodClosingService
+        private PeriodClosingService $periodClosingService,
+        private AccountingService $accounting
     ) {}
 
     public function index()
     {
         $periods = FinancialPeriod::orderByDesc('start_date')->paginate(20);
         return view('financial-periods.index', compact('periods'));
+    }
+
+    public function show(FinancialPeriod $period)
+    {
+        $from = $period->start_date->toDateString();
+        $to = $period->end_date->toDateString();
+
+        $revenue = ChartOfAccount::where('type', 'revenue')->get()
+            ->sum(fn($account) => $this->accounting->getAccountMovement($account, $from, $to, true)['signed']);
+        $expenses = ChartOfAccount::where('type', 'expense')->get()
+            ->sum(fn($account) => $this->accounting->getAccountMovement($account, $from, $to, true)['signed']);
+        $netProfit = $revenue - $expenses;
+
+        $trialAccounts = $this->accounting->getTrialBalance($from, $to);
+        $trialDebit = $trialAccounts->sum('tb_debit');
+        $trialCredit = $trialAccounts->sum('tb_credit');
+        $trialBalanced = round($trialDebit, 2) === round($trialCredit, 2);
+
+        $balanceSheet = $this->accounting->getBalanceSheet($to);
+        $openingCash = $this->accounting->getCashBalance($period->start_date->copy()->subDay()->toDateString());
+        $endingCash = $this->accounting->getCashBalance($to);
+        $netCash = $endingCash - $openingCash;
+
+        $journalCount = JournalEntry::whereBetween('entry_date', [$from, $to])->count();
+        $transactionCount = JournalEntryLine::join('journal_entries', 'journal_entries.id', '=', 'journal_entry_lines.journal_entry_id')
+            ->whereBetween('journal_entries.entry_date', [$from, $to])
+            ->count();
+
+        $arBalance = ChartOfAccount::where('code', '1-1200')->first()?->getBalance(null, $to) ?? 0;
+        $apBalance = ChartOfAccount::where('code', '2-1000')->first()?->getBalance(null, $to) ?? 0;
+        $inventoryValuation = Product::query()->sum(DB::raw('stock * cost_price'));
+
+        $recentEntries = JournalEntry::with('lines.account')
+            ->whereBetween('entry_date', [$from, $to])
+            ->orderByDesc('entry_date')
+            ->orderByDesc('id')
+            ->limit(8)
+            ->get();
+
+        $openAr = ArInvoice::whereIn('status', ['Open', 'Partially Paid'])->sum(DB::raw('total - paid_amount'));
+        $openAp = ApInvoice::whereIn('status', ['Open', 'Partially Paid'])->sum(DB::raw('total - paid_amount'));
+
+        return view('financial-periods.show', compact(
+            'period', 'revenue', 'expenses', 'netProfit', 'trialDebit',
+            'trialCredit', 'trialBalanced', 'balanceSheet', 'openingCash',
+            'netCash', 'endingCash', 'journalCount', 'transactionCount',
+            'arBalance', 'apBalance', 'inventoryValuation', 'recentEntries',
+            'openAr', 'openAp'
+        ));
     }
 
     public function store(Request $request)
@@ -92,6 +149,16 @@ class FinancialPeriodController extends Controller
     {
         if ($period->isOpen()) {
             return back()->with('error', 'This period is already open.');
+        }
+
+        if (!auth()->user()?->isManager()) {
+            abort(403, 'Only managers can reopen a closed financial period.');
+        }
+
+        $closing = ClosingEntry::with('journalEntry')->where('financial_period_id', $period->id)->first();
+        if ($closing?->journalEntry) {
+            $closing->journalEntry->update(['status' => JournalEntry::STATUS_CANCELLED]);
+            $closing->delete();
         }
 
         $period->update([

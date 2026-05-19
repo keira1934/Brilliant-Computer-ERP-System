@@ -45,7 +45,7 @@
                     @foreach($assetAccounts as $account)
                     <tr>
                         <td class="font-mono">{{ $account->code }}</td>
-                        <td>{{ $account->name }}</td>
+                        <td>{{ $account->name }} @if(!empty($account->is_contra))<span class="badge badge-gray">Contra Asset</span>@endif</td>
                         <td class="text-right font-mono {{ $account->balance < 0 ? 'text-danger' : '' }}">
                             {{ $account->balance < 0 ? '(' . number_format(abs($account->balance), 2) . ')' : number_format($account->balance, 2) }}
                         </td>

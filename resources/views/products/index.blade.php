@@ -32,7 +32,7 @@
     </div>
     <div class="table-wrap">
         <table>
-            <thead><tr><th>SKU</th><th>Product Name</th><th>Category</th><th class="text-right">Cost Price</th><th class="text-right">Sell Price</th><th class="text-right">Stock</th><th class="text-right">Min Stock</th><th>Actions</th></tr></thead>
+            <thead><tr><th>SKU</th><th>Product Name</th><th>Category</th><th class="text-right">Cost Price</th><th class="text-right">Sell Price</th><th class="text-right">Stock</th><th class="text-right">Inventory Value</th><th class="text-right">Min Stock</th><th>Actions</th></tr></thead>
             <tbody>
             @forelse($products as $p)
             <tr class="{{ $p->isLowStock() ? 'low-stock-row' : '' }}">
@@ -47,6 +47,7 @@
                 <td class="text-right td-muted">Rp {{ number_format($p->cost_price,0,',','.') }}</td>
                 <td class="text-right fw-semibold">Rp {{ number_format($p->sell_price,0,',','.') }}</td>
                 <td class="text-right fw-bold {{ $p->isLowStock() ? 'text-danger' : 'text-success' }}">{{ $p->stock }}</td>
+                <td class="text-right fw-semibold">Rp {{ number_format($p->inventory_value,0,',','.') }}</td>
                 <td class="text-right td-muted">{{ $p->min_stock }}</td>
                 <td>
                     <div class="flex gap-2">
@@ -57,7 +58,7 @@
                 </td>
             </tr>
             @empty
-            <tr><td colspan="8"><div class="empty-state"><i class="bi bi-box-seam"></i><p>No products found</p></div></td></tr>
+            <tr><td colspan="9"><div class="empty-state"><i class="bi bi-box-seam"></i><p>No products found</p></div></td></tr>
             @endforelse
             </tbody>
         </table>

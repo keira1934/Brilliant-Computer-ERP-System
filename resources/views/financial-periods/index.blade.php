@@ -53,10 +53,11 @@
                 <tbody>
                     @forelse($periods as $period)
                     <tr>
-                        <td><strong>{{ $period->name }}</strong></td>
+                        <td><a href="{{ route('financial-periods.show', $period) }}" class="td-primary">{{ $period->name }}</a></td>
                         <td>{{ $period->start_date->format('d M Y') }}</td>
                         <td>{{ $period->end_date->format('d M Y') }}</td>
                         <td>
+                            <a href="{{ route('financial-periods.show', $period) }}" class="btn btn-sm btn-outline" title="View Detail"><i class="bi bi-eye"></i></a>
                             @if($period->isOpen())
                                 <span class="badge status-completed">Open</span>
                             @else

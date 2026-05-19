@@ -6,11 +6,16 @@ use App\Models\ChartOfAccount;
 use App\Models\FinancialPeriod;
 use App\Models\JournalEntry;
 use App\Models\JournalEntryLine;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class AccountingService
 {
+    public const OPENING_BALANCE_REFERENCE = 'OpeningBalance';
+    public const OPENING_BALANCE_DESCRIPTION = 'SYSTEM OPENING ENTRY - OPENING BALANCE';
+    public const OPENING_EQUITY_ACCOUNT = '3-1000';
+
     public function __construct(private AuditService $auditService) {}
 
     /**
@@ -170,6 +175,196 @@ class AccountingService
         return $account->getBalance($from, $to);
     }
 
+    public function syncOpeningBalanceJournal(): ?JournalEntry
+    {
+        return DB::transaction(function () {
+            $accounts = ChartOfAccount::where('is_active', true)
+                ->where('opening_balance', '!=', 0)
+                ->orderBy('code')
+                ->lockForUpdate()
+                ->get();
+
+            $existing = JournalEntry::where('reference_type', self::OPENING_BALANCE_REFERENCE)
+                ->lockForUpdate()
+                ->get();
+
+            foreach ($existing as $entry) {
+                if (FinancialPeriod::isDateInClosedPeriod($entry->entry_date->toDateString())) {
+                    throw new \RuntimeException('Opening balances cannot be changed because the current opening journal is in a closed financial period.');
+                }
+            }
+
+            JournalEntry::where('reference_type', self::OPENING_BALANCE_REFERENCE)->delete();
+
+            if ($accounts->isEmpty()) {
+                return null;
+            }
+
+            $openingDateValue = $accounts
+                ->pluck('opening_balance_date')
+                ->filter()
+                ->min();
+            $openingDate = $openingDateValue
+                ? Carbon::parse($openingDateValue)->toDateString()
+                : now()->startOfYear()->toDateString();
+
+            if (FinancialPeriod::isDateInClosedPeriod($openingDate)) {
+                throw new \RuntimeException("Cannot post opening balances for {$openingDate}: the financial period is closed.");
+            }
+
+            $lines = [];
+            $totalDebit = 0.0;
+            $totalCredit = 0.0;
+
+            foreach ($accounts as $account) {
+                $amount = round(abs((float) $account->opening_balance), 2);
+                if ($amount <= 0) {
+                    continue;
+                }
+
+                $isNormalSide = (float) $account->opening_balance >= 0;
+                $debit = ($account->normal_balance === 'debit') === $isNormalSide ? $amount : 0.0;
+                $credit = $debit > 0 ? 0.0 : $amount;
+
+                $totalDebit += $debit;
+                $totalCredit += $credit;
+
+                $lines[] = [
+                    'code' => $account->code,
+                    'debit' => $debit,
+                    'credit' => $credit,
+                    'description' => "Opening balance - {$account->code} {$account->name}",
+                ];
+            }
+
+            $difference = round($totalDebit - $totalCredit, 2);
+            if ($difference > 0) {
+                $lines[] = [
+                    'code' => self::OPENING_EQUITY_ACCOUNT,
+                    'debit' => 0,
+                    'credit' => $difference,
+                    'description' => 'Opening balance equity plug',
+                ];
+            } elseif ($difference < 0) {
+                $lines[] = [
+                    'code' => self::OPENING_EQUITY_ACCOUNT,
+                    'debit' => abs($difference),
+                    'credit' => 0,
+                    'description' => 'Opening balance equity plug',
+                ];
+            }
+
+            if (count($lines) < 2) {
+                return null;
+            }
+
+            return $this->postJournal(
+                $openingDate,
+                self::OPENING_BALANCE_DESCRIPTION,
+                self::OPENING_BALANCE_REFERENCE,
+                null,
+                $lines
+            );
+        });
+    }
+
+    public function getAccountMovement(ChartOfAccount $account, ?string $from = null, ?string $to = null, bool $excludeClosing = false): array
+    {
+        $q = $account->journalLines()
+            ->join('journal_entries', 'journal_entries.id', '=', 'journal_entry_lines.journal_entry_id')
+            ->whereIn('journal_entries.status', JournalEntry::ledgerStatuses());
+
+        if ($from) $q->where('journal_entries.entry_date', '>=', $from);
+        if ($to)   $q->where('journal_entries.entry_date', '<=', $to);
+        if ($excludeClosing) {
+            $q->where(function ($query) {
+                $query->whereNull('journal_entries.reference_type')
+                    ->orWhere('journal_entries.reference_type', '!=', 'PeriodClosing');
+            });
+        }
+
+        $debit = (float) (clone $q)->sum('journal_entry_lines.debit');
+        $credit = (float) (clone $q)->sum('journal_entry_lines.credit');
+        $signed = $account->normal_balance === 'debit' ? ($debit - $credit) : ($credit - $debit);
+
+        return compact('debit', 'credit', 'signed');
+    }
+
+    public function getTrialBalance(?string $from, ?string $to)
+    {
+        return ChartOfAccount::where('is_active', true)
+            ->orderBy('code')
+            ->get()
+            ->map(function (ChartOfAccount $account) use ($from, $to) {
+                $beginning = $from
+                    ? $account->getBalance(null, Carbon::parse($from)->subDay()->toDateString())
+                    : 0.0;
+                $movement = $this->getAccountMovement($account, $from, $to);
+                $ending = $account->getBalance(null, $to);
+
+                $account->beginning_balance = $beginning;
+                $account->total_debit = $movement['debit'];
+                $account->total_credit = $movement['credit'];
+                $account->ending_balance = $ending;
+
+                if ($ending >= 0) {
+                    $account->tb_debit = $account->normal_balance === 'debit' ? $ending : 0;
+                    $account->tb_credit = $account->normal_balance === 'credit' ? $ending : 0;
+                } else {
+                    $account->tb_debit = $account->normal_balance === 'credit' ? abs($ending) : 0;
+                    $account->tb_credit = $account->normal_balance === 'debit' ? abs($ending) : 0;
+                }
+
+                return $account;
+            })
+            ->filter(fn($a) => round(abs($a->beginning_balance) + $a->total_debit + $a->total_credit + abs($a->ending_balance), 2) > 0)
+            ->values();
+    }
+
+    public function getBalanceSheet(string $asOf): array
+    {
+        $withBalances = fn(string $type) => ChartOfAccount::where('type', $type)
+            ->where('is_active', true)
+            ->orderBy('code')
+            ->get()
+            ->map(function (ChartOfAccount $account) use ($asOf) {
+                $account->balance = $account->getBalance(null, $asOf);
+                if ($account->type === 'asset' && $account->normal_balance === 'credit') {
+                    $account->balance *= -1;
+                    $account->is_contra = true;
+                }
+                return $account;
+            });
+
+        $assetAccounts = $withBalances('asset');
+        $liabilityAccounts = $withBalances('liability');
+        $equityAccounts = $withBalances('equity');
+
+        $totalRevenue = ChartOfAccount::where('type', 'revenue')->get()
+            ->sum(fn($a) => $a->getBalance(null, $asOf));
+        $totalExpenses = ChartOfAccount::where('type', 'expense')->get()
+            ->sum(fn($a) => $a->getBalance(null, $asOf));
+        $currentEarnings = round($totalRevenue - $totalExpenses, 2);
+
+        $totalAssets = round($assetAccounts->sum('balance'), 2);
+        $totalLiabilities = round($liabilityAccounts->sum('balance'), 2);
+        $totalEquity = round($equityAccounts->sum('balance') + $currentEarnings, 2);
+        $isBalanced = round($totalAssets, 2) === round($totalLiabilities + $totalEquity, 2);
+
+        return compact(
+            'assetAccounts', 'liabilityAccounts', 'equityAccounts',
+            'totalRevenue', 'totalExpenses', 'currentEarnings',
+            'totalAssets', 'totalLiabilities', 'totalEquity', 'isBalanced'
+        );
+    }
+
+    public function getCashBalance(?string $asOf = null): float
+    {
+        return ChartOfAccount::whereIn('code', ['1-1000', '1-1100'])
+            ->get()
+            ->sum(fn($account) => $account->getBalance(null, $asOf));
+    }
+
     /**
      * Get total debit/credit for a type of accounts within a date range.
      * Only considers POSTED journals.
@@ -191,7 +386,7 @@ class AccountingService
     /**
      * Generate an atomic journal number using lockForUpdate to prevent race conditions.
      */
-    private function generateJournalNumber(): string
+    public function generateJournalNumber(): string
     {
         $prefix = 'JRN-' . date('Ym') . '-';
 

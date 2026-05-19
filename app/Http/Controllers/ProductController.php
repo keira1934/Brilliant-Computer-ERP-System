@@ -4,12 +4,16 @@ namespace App\Http\Controllers;
 
 use App\Models\Product;
 use App\Services\AuditService;
+use App\Services\InventoryLedgerService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class ProductController extends Controller
 {
-    public function __construct(private AuditService $auditService) {}
+    public function __construct(
+        private AuditService $auditService,
+        private InventoryLedgerService $inventoryLedger
+    ) {}
 
     private const CATEGORY_PREFIX = [
         'Laptop' => 'LAP',
@@ -60,6 +64,19 @@ class ProductController extends Controller
         $product = DB::transaction(function () use ($data) {
             $data['sku'] = $this->generateSku($data['category']);
             $product = Product::create($data);
+            if ((int) $product->stock > 0) {
+                $this->inventoryLedger->recordMovement(
+                    $product,
+                    now()->toDateString(),
+                    'opening',
+                    (int) $product->stock,
+                    0,
+                    (float) $product->cost_price,
+                    'OpeningBalance',
+                    $product->id,
+                    'Opening stock quantity and valuation'
+                );
+            }
             $this->auditService->logCreation('inventory', $product, "Product {$product->sku} created");
 
             return $product;

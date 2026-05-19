@@ -47,6 +47,21 @@ document.addEventListener('DOMContentLoaded', function () {
     };
 
     // ===== SIDEBAR SUBMENUS =====
+    var menuToggle = document.getElementById('mobile-menu-toggle');
+    var sidebar = document.getElementById('sidebar');
+    var backdrop = document.getElementById('sidebar-backdrop');
+    function closeSidebar() {
+        if (sidebar) sidebar.classList.remove('mobile-open');
+        if (backdrop) backdrop.classList.remove('show');
+    }
+    if (menuToggle && sidebar) {
+        menuToggle.addEventListener('click', function () {
+            sidebar.classList.toggle('mobile-open');
+            if (backdrop) backdrop.classList.toggle('show');
+        });
+    }
+    if (backdrop) backdrop.addEventListener('click', closeSidebar);
+
     document.querySelectorAll('.nav-link.has-submenu').forEach(function (link) {
         link.addEventListener('click', function (e) {
             e.preventDefault();

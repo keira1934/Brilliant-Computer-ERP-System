@@ -127,6 +127,7 @@ Route::middleware('auth')->group(function () {
         // Financial Periods
         Route::get('financial-periods',             [FinancialPeriodController::class, 'index'])->name('financial-periods.index');
         Route::post('financial-periods',            [FinancialPeriodController::class, 'store'])->name('financial-periods.store');
+        Route::get('financial-periods/{period}',    [FinancialPeriodController::class, 'show'])->name('financial-periods.show');
         Route::post('financial-periods/{period}/close', [FinancialPeriodController::class, 'close'])->name('financial-periods.close');
         Route::post('financial-periods/{period}/reopen', [FinancialPeriodController::class, 'reopen'])->name('financial-periods.reopen');
     });

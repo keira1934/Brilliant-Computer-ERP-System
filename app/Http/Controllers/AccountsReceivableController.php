@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ArInvoice;
+use App\Models\ChartOfAccount;
 use App\Services\AccountsReceivableService;
 use Illuminate\Http\Request;
 
@@ -32,8 +33,14 @@ class AccountsReceivableController extends Controller
         foreach ($agingInvoices as $invoice) {
             $aging[$invoice->agingBucket($asOf)] += $invoice->outstanding;
         }
+        $ledgerBalance = ChartOfAccount::where('code', '1-1200')->first()?->getBalance(null, $asOf) ?? 0;
+        $invoiceOutstanding = $agingInvoices->sum('outstanding');
+        $openingReceivable = max(0, round($ledgerBalance - $invoiceOutstanding, 2));
+        if ($openingReceivable > 0) {
+            $aging['90+'] += $openingReceivable;
+        }
 
-        return view('accounts-receivable.index', compact('invoices', 'aging', 'asOf'));
+        return view('accounts-receivable.index', compact('invoices', 'aging', 'asOf', 'ledgerBalance', 'invoiceOutstanding', 'openingReceivable'));
     }
 
     public function show(ArInvoice $invoice)
