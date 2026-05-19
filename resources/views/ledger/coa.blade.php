@@ -23,7 +23,7 @@ $typeColors = ['asset'=>'badge-navy','liability'=>'badge-warning','equity'=>'bad
     </div>
     <div class="table-wrap">
         <table>
-            <thead><tr><th>Code</th><th>Account Name</th><th>Normal Balance</th><th class="text-right">Opening Balance</th><th>OB Date</th><th>Description</th><th>Actions</th></tr></thead>
+            <thead><tr><th>Code</th><th>Account Name</th><th>Normal Balance</th><th class="text-right">Opening Balance</th><th class="text-right">Current Balance</th><th>OB Date</th><th>Description</th><th>Actions</th></tr></thead>
             <tbody>
             @foreach($accounts[$type] as $account)
             <tr>
@@ -33,6 +33,7 @@ $typeColors = ['asset'=>'badge-navy','liability'=>'badge-warning','equity'=>'bad
                 <td class="text-right font-mono {{ $account->opening_balance != 0 ? 'fw-bold text-navy' : 'td-muted' }}">
                     {{ $account->opening_balance != 0 ? number_format($account->opening_balance, 2) : '—' }}
                 </td>
+                <td class="text-right font-mono fw-bold">Rp {{ number_format($account->getBalance(null, now()->toDateString()), 2) }}</td>
                 <td class="td-muted">{{ $account->opening_balance_date ? $account->opening_balance_date->format('d M Y') : '—' }}</td>
                 <td class="td-muted">{{ $account->description ?? '-' }}</td>
                 <td>

@@ -8,6 +8,12 @@
     </div>
 </div>
 
+<div class="grid-3 mb-5">
+    <div class="metric-card"><span class="metric-label">AR Ledger Balance</span><span class="metric-value">Rp {{ number_format($ledgerBalance,0,',','.') }}</span></div>
+    <div class="metric-card"><span class="metric-label">Invoice Outstanding</span><span class="metric-value">Rp {{ number_format($invoiceOutstanding,0,',','.') }}</span></div>
+    <div class="metric-card"><span class="metric-label">Opening / Previous Balance</span><span class="metric-value">Rp {{ number_format($openingReceivable,0,',','.') }}</span></div>
+</div>
+
 <div class="grid-5 mb-5">
     @foreach($aging as $bucket => $amount)
     <div class="metric-card">

@@ -39,4 +39,9 @@ class Product extends Model
     {
         return $this->stock <= $this->min_stock;
     }
+
+    public function getInventoryValueAttribute(): float
+    {
+        return (float) $this->stock * (float) $this->cost_price;
+    }
 }

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ApInvoice;
+use App\Models\ChartOfAccount;
 use App\Services\AccountsPayableService;
 use Illuminate\Http\Request;
 
@@ -32,8 +33,14 @@ class AccountsPayableController extends Controller
         foreach ($agingInvoices as $invoice) {
             $aging[$invoice->agingBucket($asOf)] += $invoice->outstanding;
         }
+        $ledgerBalance = ChartOfAccount::where('code', '2-1000')->first()?->getBalance(null, $asOf) ?? 0;
+        $invoiceOutstanding = $agingInvoices->sum('outstanding');
+        $openingPayable = max(0, round($ledgerBalance - $invoiceOutstanding, 2));
+        if ($openingPayable > 0) {
+            $aging['90+'] += $openingPayable;
+        }
 
-        return view('accounts-payable.index', compact('invoices', 'aging', 'asOf'));
+        return view('accounts-payable.index', compact('invoices', 'aging', 'asOf', 'ledgerBalance', 'invoiceOutstanding', 'openingPayable'));
     }
 
     public function show(ApInvoice $invoice)

@@ -150,6 +150,9 @@
 
     {{-- TOPBAR --}}
     <header class="topbar">
+        <button type="button" class="mobile-menu-toggle" id="mobile-menu-toggle" aria-label="Open navigation">
+            <i class="bi bi-list"></i>
+        </button>
         <div>
             <div class="topbar-title">{{ $title ?? 'Dashboard' }}</div>
             @isset($breadcrumb)<div class="topbar-breadcrumb">{{ $breadcrumb }}</div>@endisset
@@ -172,6 +175,7 @@
             </form>
         </div>
     </header>
+    <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
 
     {{-- CONTENT --}}
     <main class="main-content fade-in">
