@@ -32,29 +32,33 @@
     </div>
     <div class="table-wrap">
         <table>
-            <thead><tr><th>SKU</th><th>Product Name</th><th>Category</th><th class="text-right">Cost Price</th><th class="text-right">Sell Price</th><th class="text-right">Stock</th><th class="text-right">Min Stock</th><th>Actions</th></tr></thead>
+            <thead><tr><th>SKU</th><th>Product Name</th><th>Category</th><th class="text-right">Cost Price</th><th class="text-right">Sell Price</th><th class="text-right">Stock</th><th class="text-right">Inventory Value</th><th class="text-right">Min Stock</th><th>Actions</th></tr></thead>
             <tbody>
             @forelse($products as $p)
             <tr class="{{ $p->isLowStock() ? 'low-stock-row' : '' }}">
                 <td class="font-mono td-muted">{{ $p->sku }}</td>
                 <td class="td-primary">
-                    {{ $p->name }}
+                    <a href="{{ route('products.show', $p) }}" style="color:var(--navy-800);font-weight:600;text-decoration:none" onmouseover="this.style.color='var(--navy-500)'" onmouseout="this.style.color='var(--navy-800)'">
+                        {{ $p->name }}
+                    </a>
                     @if($p->isLowStock())<span class="badge badge-warning" style="margin-left:6px"><i class="bi bi-exclamation-triangle"></i> Low Stock</span>@endif
                 </td>
                 <td><span class="badge badge-navy">{{ $p->category }}</span></td>
                 <td class="text-right td-muted">Rp {{ number_format($p->cost_price,0,',','.') }}</td>
                 <td class="text-right fw-semibold">Rp {{ number_format($p->sell_price,0,',','.') }}</td>
                 <td class="text-right fw-bold {{ $p->isLowStock() ? 'text-danger' : 'text-success' }}">{{ $p->stock }}</td>
+                <td class="text-right fw-semibold">Rp {{ number_format($p->inventory_value,0,',','.') }}</td>
                 <td class="text-right td-muted">{{ $p->min_stock }}</td>
                 <td>
                     <div class="flex gap-2">
+                        <a href="{{ route('products.show', $p) }}" class="btn btn-sm btn-outline" title="View Detail"><i class="bi bi-eye"></i></a>
                         <a href="{{ route('products.edit', $p) }}" class="btn btn-sm btn-secondary"><i class="bi bi-pencil"></i></a>
                         <button onclick="deleteRecord('{{ route('products.destroy', $p) }}', 'Delete product &quot;{{ addslashes($p->name) }}&quot;?')" class="btn btn-sm btn-danger"><i class="bi bi-trash"></i></button>
                     </div>
                 </td>
             </tr>
             @empty
-            <tr><td colspan="8"><div class="empty-state"><i class="bi bi-box-seam"></i><p>No products found</p></div></td></tr>
+            <tr><td colspan="9"><div class="empty-state"><i class="bi bi-box-seam"></i><p>No products found</p></div></td></tr>
             @endforelse
             </tbody>
         </table>

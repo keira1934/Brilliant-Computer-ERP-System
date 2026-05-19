@@ -25,7 +25,13 @@
             <tr>
                 <td class="td-primary font-mono">{{ $sale->sale_number }}</td>
                 <td class="td-muted">{{ $sale->sale_date->format('d/m/Y') }}</td>
-                <td>{{ $sale->customer?->name ?? '<span class="td-muted">Walk-in</span>' }}</td>
+                <td>
+                    @if($sale->customer)
+                        {{ $sale->customer->name }}
+                    @else
+                        <span class="td-muted">Walk-in</span>
+                    @endif
+                </td>
                 <td><span class="badge {{ $sale->payment_method === 'Cash' ? 'badge-success' : 'badge-navy' }}">{{ $sale->payment_method }}</span></td>
                 <td class="text-right">Rp {{ number_format($sale->subtotal,0,',','.') }}</td>
                 <td class="text-right td-muted">{{ $sale->discount > 0 ? '-Rp '.number_format($sale->discount,0,',','.') : '-' }}</td>

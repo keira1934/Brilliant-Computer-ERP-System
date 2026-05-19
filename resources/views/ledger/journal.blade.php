@@ -26,7 +26,7 @@
                 <span class="font-mono fw-bold" style="color:var(--navy-800)">{{ $entry->reference_type }}-{{ $entry->reference_id }}</span>
                 <span style="margin-left:12px;color:var(--gray-600);font-size:13px">{{ $entry->description }}</span>
             </div>
-            <span class="td-muted font-mono">{{ $entry->entry_date }}</span>
+            <span class="td-muted font-mono">{{ $entry->entry_date?->format('d/m/Y') }} {{ $entry->created_at?->timezone(config('app.timezone'))->format('H:i:s') }}</span>
         </div>
         <table style="width:100%">
             <tbody>

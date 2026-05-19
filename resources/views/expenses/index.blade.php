@@ -32,7 +32,7 @@
             <tbody>
             @forelse($expenses as $exp)
             <tr>
-                <td class="td-muted">{{ $exp->expense_date }}</td>
+                <td class="td-muted">{{ $exp->expense_date?->format('d/m/Y') }}</td>
                 <td><span class="badge badge-navy">{{ $exp->category }}</span></td>
                 <td class="td-primary">{{ $exp->description ?? '-' }}</td>
                 <td class="font-mono td-muted">{{ $exp->account?->code }} {{ $exp->account?->name }}</td>

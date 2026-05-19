@@ -42,6 +42,16 @@
                     </select>
                     <div class="form-text">Leave blank to generate payroll for all active employees</div>
                 </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Allowances</label>
+                        <input name="allowances" type="number" min="0" step="0.01" value="0" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Deductions</label>
+                        <input name="deductions" type="number" min="0" step="0.01" value="0" class="form-control">
+                    </div>
+                </div>
                 <button type="submit" onclick="return confirm('Generate payroll and post journal entries?')" class="btn btn-primary w-100">
                     <i class="bi bi-currency-dollar"></i> Generate & Pay Salary
                 </button>
@@ -100,7 +110,7 @@
                 <td class="text-right td-muted">{{ $p->deductions > 0 ? 'Rp '.number_format($p->deductions,0,',','.') : '-' }}</td>
                 <td class="text-right fw-bold">Rp {{ number_format($p->net_salary,0,',','.') }}</td>
                 <td><span class="badge {{ $p->status === 'Paid' ? 'badge-success' : 'badge-warning' }}">{{ $p->status }}</span></td>
-                <td class="td-muted">{{ $p->paid_at }}</td>
+                <td class="td-muted">{{ $p->paid_at?->format('d/m/Y') }}<br><span class="font-mono" style="font-size:11px">{{ $p->created_at?->timezone(config('app.timezone'))->format('H:i:s') }}</span></td>
             </tr>
             @empty
             <tr><td colspan="9"><div class="empty-state"><i class="bi bi-currency-dollar"></i><p>No payroll records for {{ $monthNames[$month-1] }} {{ $year }}.<br>Use the form above to generate payroll.</p></div></td></tr>

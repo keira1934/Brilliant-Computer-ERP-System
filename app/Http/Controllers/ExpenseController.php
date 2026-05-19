@@ -13,7 +13,9 @@ class ExpenseController extends Controller
 
     public function index(Request $request)
     {
-        $query = Expense::with('account')->latest('expense_date');
+        $query = Expense::with('account')
+            ->orderByDesc('expense_date')
+            ->orderByDesc('id');
         if ($request->category) $query->where('category', $request->category);
         if ($request->from)     $query->where('expense_date', '>=', $request->from);
         if ($request->to)       $query->where('expense_date', '<=', $request->to);

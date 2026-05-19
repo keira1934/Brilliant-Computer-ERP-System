@@ -8,7 +8,10 @@ use Illuminate\Support\Facades\DB;
 
 class ExpenseService
 {
-    public function __construct(private AccountingService $accounting) {}
+    public function __construct(
+        private AccountingService $accounting,
+        private AuditService $auditService
+    ) {}
 
     /** Map category to COA code */
     private static array $categoryAccountMap = [
@@ -44,14 +47,16 @@ class ExpenseService
 
             $this->accounting->postJournal(
                 $data['expense_date'],
-                "Pengeluaran: {$data['category']}" . ($data['description'] ? " - {$data['description']}" : ''),
+                "Expense: {$data['category']}" . ($data['description'] ? " - {$data['description']}" : ''),
                 'Expense',
                 $expense->id,
                 [
                     ['code' => $accountCode, 'debit' => $data['amount'], 'credit' => 0,               'description' => $data['description'] ?? $data['category']],
-                    ['code' => '1-1000',     'debit' => 0,               'credit' => $data['amount'], 'description' => 'Pengeluaran kas operasional'],
+                    ['code' => '1-1000',     'debit' => 0,               'credit' => $data['amount'], 'description' => 'Operating cash disbursement'],
                 ]
             );
+
+            $this->auditService->logCreation('expense', $expense, "Expense {$expense->category} recorded and posted");
 
             return $expense;
         });

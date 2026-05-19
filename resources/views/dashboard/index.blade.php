@@ -43,6 +43,13 @@
     </div>
 </div>
 
+<div class="grid-4 mb-5">
+    <div class="metric-card"><div class="metric-label">Cash / Bank</div><div class="metric-value">Rp {{ number_format($cashBalance,0,',','.') }}</div></div>
+    <div class="metric-card"><div class="metric-label">Accounts Receivable</div><div class="metric-value">Rp {{ number_format($arBalance,0,',','.') }}</div></div>
+    <div class="metric-card"><div class="metric-label">Accounts Payable</div><div class="metric-value">Rp {{ number_format($apBalance,0,',','.') }}</div></div>
+    <div class="metric-card"><div class="metric-label">Inventory Valuation</div><div class="metric-value">Rp {{ number_format($inventoryValuation,0,',','.') }}</div></div>
+</div>
+
 @if($lowStockProducts->count())
 <div class="stock-alert">
     <i class="bi bi-exclamation-triangle-fill" style="font-size:18px;flex-shrink:0"></i>

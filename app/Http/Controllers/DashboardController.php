@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\ChartOfAccount;
+use App\Models\ApInvoice;
+use App\Models\ArInvoice;
 use App\Models\JournalEntryLine;
 use App\Models\Product;
 use App\Models\Sale;
@@ -25,6 +27,12 @@ class DashboardController extends Controller
         $totalExpenses = $this->accounting->getTotalByType('expense', 'debit', $from, $to);
         $netProfit     = $totalRevenue - $totalExpenses;
         $lowStockCount = Product::whereColumn('stock', '<=', 'min_stock')->count();
+        $cashBalance   = $this->accounting->getCashBalance($to);
+        $arBalance     = ChartOfAccount::where('code', '1-1200')->first()?->getBalance(null, $to) ?? 0;
+        $apBalance     = ChartOfAccount::where('code', '2-1000')->first()?->getBalance(null, $to) ?? 0;
+        $inventoryValuation = Product::query()->sum(DB::raw('stock * cost_price'));
+        $openArInvoices = ArInvoice::whereIn('status', ['Open', 'Partially Paid'])->sum(DB::raw('total - paid_amount'));
+        $openApInvoices = ApInvoice::whereIn('status', ['Open', 'Partially Paid'])->sum(DB::raw('total - paid_amount'));
 
         // Low stock products
         $lowStockProducts = Product::whereColumn('stock', '<=', 'min_stock')
@@ -32,10 +40,10 @@ class DashboardController extends Controller
 
         // Active service orders
         $activeOrders = ServiceOrder::whereIn('status', ['Received', 'InProgress'])
-            ->with('customer')->latest()->take(5)->get();
+            ->with('customer')->orderByDesc('received_at')->orderByDesc('id')->take(5)->get();
 
         // Recent sales
-        $recentSales = Sale::with('customer')->latest()->take(5)->get();
+        $recentSales = Sale::with('customer')->orderByDesc('sale_date')->orderByDesc('id')->take(5)->get();
 
         // Monthly Revenue vs Expenses chart (last 6 months)
         $chartData = $this->getMonthlyChartData();
@@ -47,7 +55,8 @@ class DashboardController extends Controller
         return view('dashboard.index', compact(
             'totalRevenue', 'totalExpenses', 'netProfit', 'lowStockCount',
             'lowStockProducts', 'activeOrders', 'recentSales',
-            'chartData', 'serviceStatusData'
+            'chartData', 'serviceStatusData', 'cashBalance', 'arBalance',
+            'apBalance', 'inventoryValuation', 'openArInvoices', 'openApInvoices'
         ));
     }
 
