@@ -44,6 +44,10 @@ class CustomerController extends Controller
             ->get();
 
         $totalSales        = $customer->sales()->sum('total');
+        $totalServiceSpending = $customer->serviceOrders()
+            ->where('status', 'Completed')
+            ->sum('service_cost');
+        $totalSpending     = $totalSales + $totalServiceSpending;
         $totalTransactions = $customer->sales()->count();
         $totalServiceOrders= $customer->serviceOrders()->count();
         $outstandingAR     = $customer->arInvoices()
@@ -52,7 +56,8 @@ class CustomerController extends Controller
 
         return view('customers.show', compact(
             'customer', 'sales', 'serviceOrders', 'arInvoices',
-            'totalSales', 'totalTransactions', 'totalServiceOrders', 'outstandingAR'
+            'totalSales', 'totalServiceSpending', 'totalSpending',
+            'totalTransactions', 'totalServiceOrders', 'outstandingAR'
         ));
     }
 

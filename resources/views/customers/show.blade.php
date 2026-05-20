@@ -27,8 +27,12 @@
         <div class="kpi-icon success"><i class="bi bi-currency-dollar"></i></div>
         <div>
             <div class="kpi-label">Total Spending</div>
-            <div class="kpi-value" style="font-size:16px">Rp {{ number_format($totalSales, 0, ',', '.') }}</div>
-            <div class="kpi-sub">Lifetime value</div>
+            <div class="kpi-value" style="font-size:16px">Rp {{ number_format($totalSpending, 0, ',', '.') }}</div>
+            <div class="kpi-sub">
+                Sales: Rp {{ number_format($totalSales, 0, ',', '.') }}
+                &nbsp;·&nbsp;
+                Service: Rp {{ number_format($totalServiceSpending, 0, ',', '.') }}
+            </div>
         </div>
     </div>
     <div class="kpi-card">
