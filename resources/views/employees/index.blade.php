@@ -13,7 +13,11 @@
             @forelse($employees as $emp)
             <tr>
                 <td class="font-mono td-muted">{{ $emp->employee_code }}</td>
-                <td class="td-primary">{{ $emp->name }}</td>
+                <td class="td-primary">
+                    <a href="{{ route('employees.show', $emp) }}" style="color:var(--navy-800);font-weight:600;text-decoration:none" onmouseover="this.style.color='var(--navy-500)'" onmouseout="this.style.color='var(--navy-800)'">
+                        {{ $emp->name }}
+                    </a>
+                </td>
                 <td>{{ $emp->position }}</td>
                 <td class="td-muted">{{ $emp->phone ?? $emp->email ?? '-' }}</td>
                 <td><span class="badge badge-navy">{{ ucfirst($emp->salary_type) }}</span></td>
@@ -27,8 +31,11 @@
                 </td>
                 <td>
                     <div class="flex gap-2">
+                        <a href="{{ route('employees.show', $emp) }}" class="btn btn-sm btn-outline" title="View Profile"><i class="bi bi-eye"></i></a>
                         <a href="{{ route('employees.edit', $emp) }}" class="btn btn-sm btn-secondary"><i class="bi bi-pencil"></i></a>
-                        <button onclick="deleteRecord('{{ route('employees.destroy', $emp) }}', 'Delete employee {{ addslashes($emp->name) }}?')" class="btn btn-sm btn-danger"><i class="bi bi-trash"></i></button>
+                        @if($emp->is_active)
+                        <button onclick="deleteRecord('{{ route('employees.destroy', $emp) }}', 'Delete employee {{ addslashes($emp->name) }}?')" class="btn btn-sm btn-danger" title="Delete"><i class="bi bi-trash"></i></button>
+                        @endif
                     </div>
                 </td>
             </tr>

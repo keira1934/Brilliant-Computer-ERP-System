@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\Customer;
 use App\Models\Employee;
+use App\Models\FinancialPeriod;
 use App\Models\Product;
 use App\Models\Supplier;
 use App\Services\AccountingService;
@@ -18,6 +19,9 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
+        // 0. Users first (required for audit trail)
+        $this->call(UserSeeder::class);
+
         // 1. COA first (required by all services)
         $this->call(ChartOfAccountSeeder::class);
 
@@ -28,11 +32,16 @@ class DatabaseSeeder extends Seeder
         $this->seedProducts();
 
         // 3. Transactions (via services — auto-posts journals)
+        //    Financial periods are seeded AFTER transactions so closed periods
+        //    don't block journal posting during seeding.
         $this->seedPurchases();
         $this->seedSales();
         $this->seedServiceOrders();
         $this->seedPayroll();
         $this->seedExpenses();
+
+        // 4. Financial Periods (after all transactions are posted)
+        $this->seedFinancialPeriods();
 
         $this->command->info('✓ Semua data dummy berhasil di-seed!');
     }
@@ -119,91 +128,381 @@ class DatabaseSeeder extends Seeder
     private function seedPurchases(): void
     {
         $purchaseService = app(PurchaseService::class);
-        $supplier = Supplier::first();
+        $suppliers = Supplier::all();
         $products  = Product::all()->values();
 
-        // PO 1 (2 months ago — Received)
+        // Strategy: Keep each PO under 10M IDR to avoid approval workflow
+        // Spread purchases across 6 months to match the transaction window
+
+        // Month 6 ago: Initial stock purchases
         $po1 = $purchaseService->createPurchase([
-            'supplier_id'   => $supplier->id,
-            'purchase_date' => now()->subMonths(2)->toDateString(),
+            'supplier_id'   => $suppliers[0]->id,
+            'purchase_date' => now()->subMonths(6)->addDays(2)->toDateString(),
             'items' => [
-                ['product_id' => $products[0]->id, 'qty' => 3, 'unit_cost' => 6500000],
-                ['product_id' => $products[4]->id, 'qty' => 5, 'unit_cost' => 1800000],
+                ['product_id' => $products[0]->id, 'qty' => 1, 'unit_cost' => 6500000], // HP Pavilion
+                ['product_id' => $products[4]->id, 'qty' => 2, 'unit_cost' => 1800000], // Epson L3150
+            ],
+        ]); // Total: 6.5M + 3.6M = 10.1M - still over, reduce qty
+        
+        // Let me recalculate to stay under 10M:
+        // PO 1: 1 HP (6.5M) + 1 Epson L3150 (1.8M) = 8.3M ✓
+        $po1 = $purchaseService->createPurchase([
+            'supplier_id'   => $suppliers[0]->id,
+            'purchase_date' => now()->subMonths(6)->addDays(2)->toDateString(),
+            'items' => [
+                ['product_id' => $products[0]->id, 'qty' => 1, 'unit_cost' => 6500000], // HP Pavilion
+                ['product_id' => $products[4]->id, 'qty' => 1, 'unit_cost' => 1800000], // Epson L3150
             ],
         ]);
         $purchaseService->receivePurchase($po1);
 
-        // PO 2 (1 month ago — Received)
-        $supplier2 = Supplier::skip(1)->first() ?? $supplier;
+        // PO 2: 1 ASUS (5.2M) + 2 Canon G2010 (3M) = 8.2M ✓
         $po2 = $purchaseService->createPurchase([
-            'supplier_id'   => $supplier2->id,
-            'purchase_date' => now()->subMonths(1)->toDateString(),
+            'supplier_id'   => $suppliers[1]->id,
+            'purchase_date' => now()->subMonths(6)->addDays(5)->toDateString(),
             'items' => [
-                ['product_id' => $products[1]->id, 'qty' => 5, 'unit_cost' => 5200000],
-                ['product_id' => $products[9]->id, 'qty' => 30, 'unit_cost' => 35000],
+                ['product_id' => $products[1]->id, 'qty' => 1, 'unit_cost' => 5200000], // ASUS VivoBook
+                ['product_id' => $products[5]->id, 'qty' => 2, 'unit_cost' => 1500000], // Canon G2010
             ],
         ]);
         $purchaseService->receivePurchase($po2);
 
-        // PO 3 (current month — Ordered only)
-        $purchaseService->createPurchase([
-            'supplier_id'   => $supplier->id,
-            'purchase_date' => now()->subDays(5)->toDateString(),
+        // PO 3: 1 Dell (7M) + 2 Epson L1210 (1.8M) = 8.8M ✓
+        $po3 = $purchaseService->createPurchase([
+            'supplier_id'   => $suppliers[2]->id,
+            'purchase_date' => now()->subMonths(6)->addDays(8)->toDateString(),
             'items' => [
-                ['product_id' => $products[2]->id, 'qty' => 2, 'unit_cost' => 7000000],
+                ['product_id' => $products[2]->id, 'qty' => 1, 'unit_cost' => 7000000], // Dell Inspiron
+                ['product_id' => $products[6]->id, 'qty' => 2, 'unit_cost' => 900000],  // Epson L1210
             ],
         ]);
+        $purchaseService->receivePurchase($po3);
 
-        $this->command->info('✓ Pembelian (3 PO) di-seed');
+        // PO 4: 1 Acer (5.8M) + 1 PC Gaming (8.5M) = 14.3M - too high, split
+        // PO 4: 1 Acer (5.8M) + accessories = under 10M
+        $po4 = $purchaseService->createPurchase([
+            'supplier_id'   => $suppliers[0]->id,
+            'purchase_date' => now()->subMonths(6)->addDays(10)->toDateString(),
+            'items' => [
+                ['product_id' => $products[3]->id, 'qty' => 1, 'unit_cost' => 5800000],  // Acer Aspire
+                ['product_id' => $products[9]->id, 'qty' => 50, 'unit_cost' => 35000],   // Tinta Epson Black
+                ['product_id' => $products[10]->id, 'qty' => 40, 'unit_cost' => 45000],  // Tinta Canon Color
+            ],
+        ]); // Total: 5.8M + 1.75M + 1.8M = 9.35M ✓
+        $purchaseService->receivePurchase($po4);
+
+        // PO 5: 1 PC Gaming (8.5M) + small accessories = under 10M
+        $po5 = $purchaseService->createPurchase([
+            'supplier_id'   => $suppliers[3]->id,
+            'purchase_date' => now()->subMonths(5)->addDays(3)->toDateString(),
+            'items' => [
+                ['product_id' => $products[7]->id, 'qty' => 1, 'unit_cost' => 8500000],  // PC Gaming i5
+                ['product_id' => $products[11]->id, 'qty' => 20, 'unit_cost' => 15000],  // Kabel USB
+            ],
+        ]); // Total: 8.5M + 0.3M = 8.8M ✓
+        $purchaseService->receivePurchase($po5);
+
+        // PO 6: 1 PC Office (5.5M) + RAM & SSD
+        $po6 = $purchaseService->createPurchase([
+            'supplier_id'   => $suppliers[1]->id,
+            'purchase_date' => now()->subMonths(5)->addDays(7)->toDateString(),
+            'items' => [
+                ['product_id' => $products[8]->id, 'qty' => 1, 'unit_cost' => 5500000],  // PC Office i3
+                ['product_id' => $products[12]->id, 'qty' => 12, 'unit_cost' => 280000], // RAM DDR4 8GB
+                ['product_id' => $products[13]->id, 'qty' => 9, 'unit_cost' => 380000],  // SSD 256GB
+            ],
+        ]); // Total: 5.5M + 3.36M + 3.42M = 12.28M - too high, reduce
+        
+        // Recalculate PO 6: 1 PC Office (5.5M) + 8 RAM (2.24M) + 5 SSD (1.9M) = 9.64M ✓
+        $po6 = $purchaseService->createPurchase([
+            'supplier_id'   => $suppliers[1]->id,
+            'purchase_date' => now()->subMonths(5)->addDays(7)->toDateString(),
+            'items' => [
+                ['product_id' => $products[8]->id, 'qty' => 1, 'unit_cost' => 5500000],  // PC Office i3
+                ['product_id' => $products[12]->id, 'qty' => 8, 'unit_cost' => 280000],  // RAM DDR4 8GB
+                ['product_id' => $products[13]->id, 'qty' => 5, 'unit_cost' => 380000],  // SSD 256GB
+            ],
+        ]);
+        $purchaseService->receivePurchase($po6);
+
+        // PO 7: More accessories and spare parts
+        $po7 = $purchaseService->createPurchase([
+            'supplier_id'   => $suppliers[4]->id,
+            'purchase_date' => now()->subMonths(4)->addDays(5)->toDateString(),
+            'items' => [
+                ['product_id' => $products[14]->id, 'qty' => 15, 'unit_cost' => 150000], // Spare Part Printer Head
+                ['product_id' => $products[15]->id, 'qty' => 30, 'unit_cost' => 25000],  // Pasta Thermal
+                ['product_id' => $products[16]->id, 'qty' => 20, 'unit_cost' => 60000],  // Mouse Wireless
+                ['product_id' => $products[17]->id, 'qty' => 5, 'unit_cost' => 650000],  // HDD External 1TB
+                ['product_id' => $products[18]->id, 'qty' => 4, 'unit_cost' => 500000],  // HDD Laptop 2.5"
+            ],
+        ]); // Total: 2.25M + 0.75M + 1.2M + 3.25M + 2M = 9.45M ✓
+        $purchaseService->receivePurchase($po7);
+
+        // PO 8: Restock laptops (month 3 ago)
+        $po8 = $purchaseService->createPurchase([
+            'supplier_id'   => $suppliers[0]->id,
+            'purchase_date' => now()->subMonths(3)->addDays(10)->toDateString(),
+            'items' => [
+                ['product_id' => $products[0]->id, 'qty' => 1, 'unit_cost' => 6500000], // HP Pavilion
+                ['product_id' => $products[1]->id, 'qty' => 1, 'unit_cost' => 5200000], // ASUS VivoBook
+            ],
+        ]); // Total: 6.5M + 5.2M = 11.7M - too high, just one laptop
+        
+        // Recalculate PO 8: 1 HP (6.5M) + printers
+        $po8 = $purchaseService->createPurchase([
+            'supplier_id'   => $suppliers[0]->id,
+            'purchase_date' => now()->subMonths(3)->addDays(10)->toDateString(),
+            'items' => [
+                ['product_id' => $products[0]->id, 'qty' => 1, 'unit_cost' => 6500000], // HP Pavilion
+                ['product_id' => $products[4]->id, 'qty' => 1, 'unit_cost' => 1800000], // Epson L3150
+            ],
+        ]); // Total: 8.3M ✓
+        $purchaseService->receivePurchase($po8);
+
+        // PO 9: Restock (month 2 ago)
+        $po9 = $purchaseService->createPurchase([
+            'supplier_id'   => $suppliers[2]->id,
+            'purchase_date' => now()->subMonths(2)->addDays(5)->toDateString(),
+            'items' => [
+                ['product_id' => $products[1]->id, 'qty' => 1, 'unit_cost' => 5200000], // ASUS VivoBook
+                ['product_id' => $products[5]->id, 'qty' => 2, 'unit_cost' => 1500000], // Canon G2010
+            ],
+        ]); // Total: 5.2M + 3M = 8.2M ✓
+        $purchaseService->receivePurchase($po9);
+
+        // PO 10: Recent restock (1 month ago)
+        $po10 = $purchaseService->createPurchase([
+            'supplier_id'   => $suppliers[1]->id,
+            'purchase_date' => now()->subMonths(1)->addDays(8)->toDateString(),
+            'items' => [
+                ['product_id' => $products[3]->id, 'qty' => 1, 'unit_cost' => 5800000],  // Acer Aspire
+                ['product_id' => $products[12]->id, 'qty' => 4, 'unit_cost' => 280000],  // RAM DDR4 8GB
+                ['product_id' => $products[13]->id, 'qty' => 4, 'unit_cost' => 380000],  // SSD 256GB
+            ],
+        ]); // Total: 5.8M + 1.12M + 1.52M = 8.44M ✓
+        $purchaseService->receivePurchase($po10);
+
+        // PO 11: Current month - pending order (not received yet)
+        $purchaseService->createPurchase([
+            'supplier_id'   => $suppliers[0]->id,
+            'purchase_date' => now()->subDays(5)->toDateString(),
+            'items' => [
+                ['product_id' => $products[2]->id, 'qty' => 1, 'unit_cost' => 7000000], // Dell Inspiron
+                ['product_id' => $products[8]->id, 'qty' => 1, 'unit_cost' => 5500000], // PC Office i3
+            ],
+        ]); // Total: 12.5M - too high for auto-approval, but that's OK since it's pending
+
+        $this->command->info('✓ Pembelian (11 PO, 10 received) di-seed');
     }
 
     private function seedSales(): void
     {
         $saleService = app(SaleService::class);
-        $customers   = Customer::take(5)->get();
+        $customers   = Customer::all();
         $products    = Product::all();
 
         $salesData = [
-            ['customer_id'=>$customers[0]->id,'sale_date'=>now()->subDays(25)->toDateString(),'items'=>[
-                ['product_id'=>$products[0]->id,'qty'=>1,'unit_price'=>7800000],
-                ['product_id'=>$products[9]->id,'qty'=>5,'unit_price'=>55000],
-            ],'payment_method'=>'Cash'],
-            ['customer_id'=>$customers[1]->id,'sale_date'=>now()->subDays(20)->toDateString(),'items'=>[
-                ['product_id'=>$products[4]->id,'qty'=>1,'unit_price'=>2200000],
-                ['product_id'=>$products[10]->id,'qty'=>3,'unit_price'=>70000],
+            // Month 6 ago - Early sales after opening
+            ['customer_id'=>$customers[0]->id,'sale_date'=>now()->subMonths(6)->addDays(5)->toDateString(),'items'=>[
+                ['product_id'=>$products[0]->id,'qty'=>1,'unit_price'=>7800000], // HP Pavilion
+                ['product_id'=>$products[9]->id,'qty'=>5,'unit_price'=>55000],   // Tinta Epson
             ],'payment_method'=>'Transfer'],
-            ['customer_id'=>null,'sale_date'=>now()->subDays(18)->toDateString(),'items'=>[
-                ['product_id'=>$products[13]->id,'qty'=>1,'unit_price'=>550000],
-                ['product_id'=>$products[16]->id,'qty'=>2,'unit_price'=>95000],
+            
+            ['customer_id'=>$customers[1]->id,'sale_date'=>now()->subMonths(6)->addDays(8)->toDateString(),'items'=>[
+                ['product_id'=>$products[4]->id,'qty'=>1,'unit_price'=>2200000], // Epson L3150
+                ['product_id'=>$products[10]->id,'qty'=>3,'unit_price'=>70000],  // Tinta Canon
+            ],'payment_method'=>'Cash'],
+            
+            ['customer_id'=>null,'sale_date'=>now()->subMonths(6)->addDays(12)->toDateString(),'items'=>[
+                ['product_id'=>$products[12]->id,'qty'=>2,'unit_price'=>420000], // RAM DDR4
+                ['product_id'=>$products[16]->id,'qty'=>1,'unit_price'=>95000],  // Mouse Wireless
             ],'payment_method'=>'Cash','notes'=>'Walk-in customer'],
+            
+            // Month 5 ago
+            ['customer_id'=>$customers[2]->id,'sale_date'=>now()->subMonths(5)->addDays(3)->toDateString(),'items'=>[
+                ['product_id'=>$products[1]->id,'qty'=>1,'unit_price'=>6500000], // ASUS VivoBook
+                ['product_id'=>$products[13]->id,'qty'=>1,'unit_price'=>550000], // SSD 256GB
+            ],'payment_method'=>'Transfer'],
+            
+            ['customer_id'=>$customers[3]->id,'sale_date'=>now()->subMonths(5)->addDays(10)->toDateString(),'items'=>[
+                ['product_id'=>$products[7]->id,'qty'=>1,'unit_price'=>10000000], // PC Gaming i5
+            ],'payment_method'=>'Transfer'],
+            
+            ['customer_id'=>null,'sale_date'=>now()->subMonths(5)->addDays(15)->toDateString(),'items'=>[
+                ['product_id'=>$products[9]->id,'qty'=>10,'unit_price'=>55000],  // Tinta Epson
+                ['product_id'=>$products[10]->id,'qty'=>5,'unit_price'=>70000],  // Tinta Canon
+                ['product_id'=>$products[11]->id,'qty'=>5,'unit_price'=>25000],  // Kabel USB
+            ],'payment_method'=>'Cash'],
+            
+            ['customer_id'=>$customers[4]->id,'sale_date'=>now()->subMonths(5)->addDays(20)->toDateString(),'items'=>[
+                ['product_id'=>$products[5]->id,'qty'=>1,'unit_price'=>1900000], // Canon G2010
+                ['product_id'=>$products[10]->id,'qty'=>5,'unit_price'=>70000],  // Tinta Canon
+            ],'payment_method'=>'Cash'],
+            
+            // Month 4 ago
+            ['customer_id'=>$customers[5]->id,'sale_date'=>now()->subMonths(4)->addDays(2)->toDateString(),'items'=>[
+                ['product_id'=>$products[2]->id,'qty'=>1,'unit_price'=>8500000], // Dell Inspiron
+                ['product_id'=>$products[12]->id,'qty'=>1,'unit_price'=>420000], // RAM DDR4
+            ],'payment_method'=>'Transfer'],
+            
+            ['customer_id'=>$customers[6]->id,'sale_date'=>now()->subMonths(4)->addDays(8)->toDateString(),'items'=>[
+                ['product_id'=>$products[8]->id,'qty'=>1,'unit_price'=>6800000], // PC Office i3
+                ['product_id'=>$products[13]->id,'qty'=>1,'unit_price'=>550000], // SSD 256GB
+            ],'payment_method'=>'Transfer'],
+            
+            ['customer_id'=>null,'sale_date'=>now()->subMonths(4)->addDays(12)->toDateString(),'items'=>[
+                ['product_id'=>$products[6]->id,'qty'=>1,'unit_price'=>1200000], // Epson L1210
+                ['product_id'=>$products[9]->id,'qty'=>5,'unit_price'=>55000],   // Tinta Epson
+            ],'payment_method'=>'Cash','notes'=>'Walk-in customer'],
+            
+            ['customer_id'=>$customers[7]->id,'sale_date'=>now()->subMonths(4)->addDays(18)->toDateString(),'items'=>[
+                ['product_id'=>$products[17]->id,'qty'=>1,'unit_price'=>850000], // HDD External 1TB
+                ['product_id'=>$products[16]->id,'qty'=>2,'unit_price'=>95000],  // Mouse Wireless
+            ],'payment_method'=>'Cash'],
+            
+            ['customer_id'=>$customers[8]->id,'sale_date'=>now()->subMonths(4)->addDays(22)->toDateString(),'items'=>[
+                ['product_id'=>$products[12]->id,'qty'=>2,'unit_price'=>420000], // RAM DDR4
+                ['product_id'=>$products[13]->id,'qty'=>2,'unit_price'=>550000], // SSD 256GB
+                ['product_id'=>$products[15]->id,'qty'=>3,'unit_price'=>45000],  // Pasta Thermal
+            ],'payment_method'=>'Transfer'],
+            
+            // Month 3 ago
+            ['customer_id'=>$customers[9]->id,'sale_date'=>now()->subMonths(3)->addDays(5)->toDateString(),'items'=>[
+                ['product_id'=>$products[3]->id,'qty'=>1,'unit_price'=>7200000], // Acer Aspire
+                ['product_id'=>$products[12]->id,'qty'=>1,'unit_price'=>420000], // RAM DDR4
+            ],'payment_method'=>'Transfer'],
+            
+            ['customer_id'=>$customers[0]->id,'sale_date'=>now()->subMonths(3)->addDays(12)->toDateString(),'items'=>[
+                ['product_id'=>$products[4]->id,'qty'=>1,'unit_price'=>2200000], // Epson L3150
+                ['product_id'=>$products[9]->id,'qty'=>10,'unit_price'=>55000],  // Tinta Epson
+            ],'payment_method'=>'Cash'],
+            
+            ['customer_id'=>null,'sale_date'=>now()->subMonths(3)->addDays(15)->toDateString(),'items'=>[
+                ['product_id'=>$products[18]->id,'qty'=>1,'unit_price'=>700000], // HDD Laptop 2.5"
+                ['product_id'=>$products[14]->id,'qty'=>1,'unit_price'=>250000], // Spare Part Printer Head
+            ],'payment_method'=>'Cash','notes'=>'Walk-in customer'],
+            
+            ['customer_id'=>$customers[1]->id,'sale_date'=>now()->subMonths(3)->addDays(20)->toDateString(),'items'=>[
+                ['product_id'=>$products[5]->id,'qty'=>1,'unit_price'=>1900000], // Canon G2010
+                ['product_id'=>$products[10]->id,'qty'=>5,'unit_price'=>70000],  // Tinta Canon
+            ],'payment_method'=>'Transfer'],
+            
+            ['customer_id'=>$customers[2]->id,'sale_date'=>now()->subMonths(3)->addDays(25)->toDateString(),'items'=>[
+                ['product_id'=>$products[16]->id,'qty'=>3,'unit_price'=>95000],  // Mouse Wireless
+                ['product_id'=>$products[11]->id,'qty'=>10,'unit_price'=>25000], // Kabel USB
+            ],'payment_method'=>'Cash'],
+            
+            // Month 2 ago
+            ['customer_id'=>$customers[3]->id,'sale_date'=>now()->subMonths(2)->addDays(3)->toDateString(),'items'=>[
+                ['product_id'=>$products[0]->id,'qty'=>1,'unit_price'=>7800000], // HP Pavilion
+                ['product_id'=>$products[13]->id,'qty'=>1,'unit_price'=>550000], // SSD 256GB
+            ],'payment_method'=>'Transfer'],
+            
+            ['customer_id'=>$customers[4]->id,'sale_date'=>now()->subMonths(2)->addDays(8)->toDateString(),'items'=>[
+                ['product_id'=>$products[1]->id,'qty'=>1,'unit_price'=>6500000], // ASUS VivoBook
+                ['product_id'=>$products[12]->id,'qty'=>1,'unit_price'=>420000], // RAM DDR4
+            ],'payment_method'=>'Transfer'],
+            
+            ['customer_id'=>null,'sale_date'=>now()->subMonths(2)->addDays(12)->toDateString(),'items'=>[
+                ['product_id'=>$products[6]->id,'qty'=>1,'unit_price'=>1200000], // Epson L1210
+                ['product_id'=>$products[9]->id,'qty'=>5,'unit_price'=>55000],   // Tinta Epson
+            ],'payment_method'=>'Cash','notes'=>'Walk-in customer'],
+            
+            ['customer_id'=>$customers[5]->id,'sale_date'=>now()->subMonths(2)->addDays(18)->toDateString(),'items'=>[
+                ['product_id'=>$products[5]->id,'qty'=>1,'unit_price'=>1900000], // Canon G2010
+                ['product_id'=>$products[10]->id,'qty'=>5,'unit_price'=>70000],  // Tinta Canon
+            ],'payment_method'=>'Cash'],
+            
+            ['customer_id'=>$customers[6]->id,'sale_date'=>now()->subMonths(2)->addDays(22)->toDateString(),'items'=>[
+                ['product_id'=>$products[12]->id,'qty'=>2,'unit_price'=>420000], // RAM DDR4
+                ['product_id'=>$products[13]->id,'qty'=>2,'unit_price'=>550000], // SSD 256GB
+            ],'payment_method'=>'Transfer'],
+            
+            // Month 1 ago
+            ['customer_id'=>$customers[7]->id,'sale_date'=>now()->subMonths(1)->addDays(5)->toDateString(),'items'=>[
+                ['product_id'=>$products[3]->id,'qty'=>1,'unit_price'=>7200000], // Acer Aspire
+                ['product_id'=>$products[14]->id,'qty'=>2,'unit_price'=>250000], // Spare Part Printer Head
+            ],'payment_method'=>'Transfer'],
+            
+            ['customer_id'=>$customers[8]->id,'sale_date'=>now()->subMonths(1)->addDays(10)->toDateString(),'items'=>[
+                ['product_id'=>$products[4]->id,'qty'=>1,'unit_price'=>2200000], // Epson L3150
+                ['product_id'=>$products[9]->id,'qty'=>10,'unit_price'=>55000],  // Tinta Epson
+            ],'payment_method'=>'Cash'],
+            
+            ['customer_id'=>null,'sale_date'=>now()->subMonths(1)->addDays(15)->toDateString(),'items'=>[
+                ['product_id'=>$products[17]->id,'qty'=>1,'unit_price'=>850000], // HDD External 1TB
+                ['product_id'=>$products[16]->id,'qty'=>2,'unit_price'=>95000],  // Mouse Wireless
+            ],'payment_method'=>'Cash','notes'=>'Walk-in customer'],
+            
+            ['customer_id'=>$customers[9]->id,'sale_date'=>now()->subMonths(1)->addDays(20)->toDateString(),'items'=>[
+                ['product_id'=>$products[1]->id,'qty'=>1,'unit_price'=>6500000], // ASUS VivoBook
+                ['product_id'=>$products[13]->id,'qty'=>1,'unit_price'=>550000], // SSD 256GB
+            ],'payment_method'=>'Transfer'],
+            
+            // Current month
+            ['customer_id'=>$customers[0]->id,'sale_date'=>now()->subDays(25)->toDateString(),'items'=>[
+                ['product_id'=>$products[0]->id,'qty'=>1,'unit_price'=>7800000], // HP Pavilion
+                ['product_id'=>$products[9]->id,'qty'=>5,'unit_price'=>55000],   // Tinta Epson
+            ],'payment_method'=>'Cash'],
+            
+            ['customer_id'=>$customers[1]->id,'sale_date'=>now()->subDays(20)->toDateString(),'items'=>[
+                ['product_id'=>$products[5]->id,'qty'=>1,'unit_price'=>1900000], // Canon G2010
+                ['product_id'=>$products[10]->id,'qty'=>3,'unit_price'=>70000],  // Tinta Canon
+            ],'payment_method'=>'Transfer'],
+            
+            ['customer_id'=>null,'sale_date'=>now()->subDays(18)->toDateString(),'items'=>[
+                ['product_id'=>$products[13]->id,'qty'=>1,'unit_price'=>550000], // SSD 256GB
+                ['product_id'=>$products[16]->id,'qty'=>2,'unit_price'=>95000],  // Mouse Wireless
+            ],'payment_method'=>'Cash','notes'=>'Walk-in customer'],
+            
             ['customer_id'=>$customers[2]->id,'sale_date'=>now()->subDays(12)->toDateString(),'items'=>[
-                ['product_id'=>$products[1]->id,'qty'=>1,'unit_price'=>6500000],
-                ['product_id'=>$products[3]->id,'qty'=>1,'unit_price'=>420000],
+                ['product_id'=>$products[12]->id,'qty'=>2,'unit_price'=>420000], // RAM DDR4
+                ['product_id'=>$products[11]->id,'qty'=>5,'unit_price'=>25000],  // Kabel USB
             ],'payment_method'=>'Transfer'],
+            
             ['customer_id'=>$customers[3]->id,'sale_date'=>now()->subDays(8)->toDateString(),'items'=>[
-                ['product_id'=>$products[7]->id,'qty'=>1,'unit_price'=>10000000],
+                ['product_id'=>$products[6]->id,'qty'=>1,'unit_price'=>1200000], // Epson L1210
+                ['product_id'=>$products[9]->id,'qty'=>5,'unit_price'=>55000],   // Tinta Epson
             ],'payment_method'=>'Transfer'],
+            
             ['customer_id'=>null,'sale_date'=>now()->subDays(5)->toDateString(),'items'=>[
-                ['product_id'=>$products[9]->id,'qty'=>10,'unit_price'=>55000],
-                ['product_id'=>$products[10]->id,'qty'=>5,'unit_price'=>70000],
+                ['product_id'=>$products[9]->id,'qty'=>10,'unit_price'=>55000],  // Tinta Epson
+                ['product_id'=>$products[10]->id,'qty'=>5,'unit_price'=>70000],  // Tinta Canon
             ],'payment_method'=>'Cash'],
+            
             ['customer_id'=>$customers[4]->id,'sale_date'=>now()->subDays(3)->toDateString(),'items'=>[
-                ['product_id'=>$products[3]->id,'qty'=>1,'unit_price'=>7200000],
-                ['product_id'=>$products[14]->id,'qty'=>2,'unit_price'=>550000],
-            ],'payment_method'=>'Cash','discount'=>100000],
-            ['customer_id'=>$customers[2]->id,'sale_date'=>now()->subDays(1)->toDateString(),'items'=>[
-                ['product_id'=>$products[5]->id,'qty'=>1,'unit_price'=>1900000],
+                ['product_id'=>$products[18]->id,'qty'=>1,'unit_price'=>700000], // HDD Laptop 2.5"
+                ['product_id'=>$products[14]->id,'qty'=>2,'unit_price'=>250000], // Spare Part Printer Head
             ],'payment_method'=>'Cash'],
+            
+            ['customer_id'=>$customers[5]->id,'sale_date'=>now()->subDays(1)->toDateString(),'items'=>[
+                ['product_id'=>$products[15]->id,'qty'=>5,'unit_price'=>45000],  // Pasta Thermal
+                ['product_id'=>$products[16]->id,'qty'=>3,'unit_price'=>95000],  // Mouse Wireless
+            ],'payment_method'=>'Cash'],
+            
+            // Additional sales to ensure profitability
+            ['customer_id'=>$customers[6]->id,'sale_date'=>now()->subMonths(4)->addDays(25)->toDateString(),'items'=>[
+                ['product_id'=>$products[3]->id,'qty'=>1,'unit_price'=>7200000], // Acer Aspire
+            ],'payment_method'=>'Transfer'],
+            
+            ['customer_id'=>$customers[7]->id,'sale_date'=>now()->subMonths(3)->addDays(28)->toDateString(),'items'=>[
+                ['product_id'=>$products[8]->id,'qty'=>1,'unit_price'=>6800000], // PC Office i3
+            ],'payment_method'=>'Transfer'],
         ];
 
+        $successCount = 0;
+        $failCount = 0;
         foreach ($salesData as $data) {
             try {
                 $saleService->createSale($data);
+                $successCount++;
             } catch (\Exception $e) {
+                $failCount++;
                 $this->command->warn("Sale skipped: " . $e->getMessage());
             }
         }
-        $this->command->info('✓ Penjualan (8 transaksi) di-seed');
+        $this->command->info("✓ Penjualan ($successCount succeeded, $failCount failed) di-seed");
     }
 
     private function seedServiceOrders(): void
@@ -212,12 +511,39 @@ class DatabaseSeeder extends Seeder
         $customers = Customer::all()->values();
 
         $orderDefs = [
-            ['cIdx'=>0,'device_type'=>'Laptop','brand'=>'HP','problem_description'=>'Laptop tidak mau menyala, layar hitam','status'=>'Completed','service_cost'=>250000,'diagnosis'=>'Adaptor rusak, sudah diganti'],
-            ['cIdx'=>1,'device_type'=>'Printer','brand'=>'Epson','problem_description'=>'Printer tidak bisa print, ada pesan error','status'=>'Completed','service_cost'=>150000,'diagnosis'=>'Head printer kotor, sudah dibersihkan'],
-            ['cIdx'=>2,'device_type'=>'Laptop','brand'=>'ASUS','problem_description'=>'Kipas berisik dan laptop cepat panas','status'=>'Done','service_cost'=>175000,'diagnosis'=>'Thermal paste habis dan kipas berdebu'],
-            ['cIdx'=>3,'device_type'=>'CPU','brand'=>'Acer','problem_description'=>'PC sering restart sendiri','status'=>'InProgress','diagnosis'=>'Sedang diagnosa RAM dan power supply'],
-            ['cIdx'=>4,'device_type'=>'All-in-One','brand'=>'Canon','problem_description'=>'Scanner tidak terdeteksi','status'=>'Received'],
-            ['cIdx'=>5,'device_type'=>'Laptop','brand'=>'Dell','problem_description'=>'Keyboard beberapa tombol tidak berfungsi','status'=>'Received'],
+            // Completed orders (revenue recognized)
+            ['cIdx'=>0,'device_type'=>'Laptop','brand'=>'HP','problem_description'=>'Laptop tidak mau menyala, layar hitam','status'=>'Completed','service_cost'=>350000,'diagnosis'=>'Adaptor rusak, sudah diganti'],
+            ['cIdx'=>1,'device_type'=>'Printer','brand'=>'Epson','problem_description'=>'Printer tidak bisa print, ada pesan error','status'=>'Completed','service_cost'=>200000,'diagnosis'=>'Head printer kotor, sudah dibersihkan'],
+            ['cIdx'=>2,'device_type'=>'Laptop','brand'=>'ASUS','problem_description'=>'Kipas berisik dan laptop cepat panas','status'=>'Completed','service_cost'=>250000,'diagnosis'=>'Thermal paste habis dan kipas berdebu'],
+            ['cIdx'=>3,'device_type'=>'CPU','brand'=>'Acer','problem_description'=>'PC sering restart sendiri','status'=>'Completed','service_cost'=>300000,'diagnosis'=>'RAM rusak, sudah diganti'],
+            ['cIdx'=>4,'device_type'=>'Laptop','brand'=>'Dell','problem_description'=>'Keyboard beberapa tombol tidak berfungsi','status'=>'Completed','service_cost'=>400000,'diagnosis'=>'Keyboard diganti dengan yang baru'],
+            ['cIdx'=>5,'device_type'=>'Printer','brand'=>'Canon','problem_description'=>'Hasil print bergaris-garis','status'=>'Completed','service_cost'=>180000,'diagnosis'=>'Head printer dibersihkan dan alignment'],
+            ['cIdx'=>6,'device_type'=>'Laptop','brand'=>'HP','problem_description'=>'Laptop lemot dan sering hang','status'=>'Completed','service_cost'=>350000,'diagnosis'=>'Upgrade RAM dan install ulang Windows'],
+            ['cIdx'=>7,'device_type'=>'CPU','brand'=>'Custom','problem_description'=>'PC tidak bisa booting','status'=>'Completed','service_cost'=>250000,'diagnosis'=>'Motherboard battery habis, sudah diganti'],
+            ['cIdx'=>8,'device_type'=>'Laptop','brand'=>'ASUS','problem_description'=>'Baterai cepat habis','status'=>'Completed','service_cost'=>150000,'diagnosis'=>'Kalibrasi baterai dan optimasi power settings'],
+            ['cIdx'=>9,'device_type'=>'Printer','brand'=>'Epson','problem_description'=>'Printer tidak terdeteksi di komputer','status'=>'Completed','service_cost'=>120000,'diagnosis'=>'Install ulang driver printer'],
+            ['cIdx'=>0,'device_type'=>'Laptop','brand'=>'Lenovo','problem_description'=>'Layar redup','status'=>'Completed','service_cost'=>300000,'diagnosis'=>'Backlight inverter diganti'],
+            ['cIdx'=>1,'device_type'=>'CPU','brand'=>'Custom','problem_description'=>'Suara berisik dari casing','status'=>'Completed','service_cost'=>150000,'diagnosis'=>'Fan casing dibersihkan dan dilumasi'],
+            ['cIdx'=>2,'device_type'=>'Laptop','brand'=>'Acer','problem_description'=>'Touchpad tidak berfungsi','status'=>'Completed','service_cost'=>200000,'diagnosis'=>'Driver touchpad diupdate dan kalibrasi'],
+            ['cIdx'=>3,'device_type'=>'Printer','brand'=>'Brother','problem_description'=>'Paper jam terus menerus','status'=>'Completed','service_cost'=>180000,'diagnosis'=>'Roller printer dibersihkan dan disetel'],
+            ['cIdx'=>4,'device_type'=>'Laptop','brand'=>'HP','problem_description'=>'Wifi tidak bisa connect','status'=>'Completed','service_cost'=>150000,'diagnosis'=>'Driver wifi diupdate dan reset network settings'],
+            ['cIdx'=>5,'device_type'=>'CPU','brand'=>'Custom','problem_description'=>'Blue screen saat gaming','status'=>'Completed','service_cost'=>350000,'diagnosis'=>'VGA overheating, thermal paste diganti'],
+            ['cIdx'=>6,'device_type'=>'Laptop','brand'=>'Dell','problem_description'=>'Charger tidak mengisi baterai','status'=>'Completed','service_cost'=>250000,'diagnosis'=>'Port charging dibersihkan dan diperbaiki'],
+            ['cIdx'=>7,'device_type'=>'Printer','brand'=>'Canon','problem_description'=>'Tinta tidak keluar','status'=>'Completed','service_cost'=>200000,'diagnosis'=>'Head printer dibersihkan dengan ultrasonic'],
+            ['cIdx'=>8,'device_type'=>'Laptop','brand'=>'ASUS','problem_description'=>'Layar bergaris','status'=>'Completed','service_cost'=>400000,'diagnosis'=>'Kabel flexible LCD diganti'],
+            ['cIdx'=>9,'device_type'=>'CPU','brand'=>'Acer','problem_description'=>'Tidak ada tampilan di monitor','status'=>'Completed','service_cost'=>300000,'diagnosis'=>'VGA card dibersihkan dan reseating'],
+            
+            // Done orders (work finished, waiting payment)
+            ['cIdx'=>0,'device_type'=>'Laptop','brand'=>'Lenovo','problem_description'=>'Harddisk bunyi klik-klik','status'=>'Done','service_cost'=>350000,'diagnosis'=>'Harddisk rusak, perlu diganti'],
+            ['cIdx'=>1,'device_type'=>'All-in-One','brand'=>'Canon','problem_description'=>'Scanner tidak terdeteksi','status'=>'Done','service_cost'=>150000,'diagnosis'=>'Kabel USB scanner diganti'],
+            
+            // In Progress orders
+            ['cIdx'=>2,'device_type'=>'Laptop','brand'=>'Acer','problem_description'=>'Laptop mati mendadak','status'=>'InProgress','diagnosis'=>'Sedang diagnosa power supply dan motherboard'],
+            ['cIdx'=>3,'device_type'=>'Printer','brand'=>'Epson','problem_description'=>'Warna print tidak akurat','status'=>'InProgress','diagnosis'=>'Sedang proses color calibration'],
+            
+            // Received orders (just received, not started yet)
+            ['cIdx'=>4,'device_type'=>'Laptop','brand'=>'Dell','problem_description'=>'USB port tidak berfungsi','status'=>'Received'],
+            ['cIdx'=>5,'device_type'=>'CPU','brand'=>'Custom','problem_description'=>'Komputer restart saat load berat','status'=>'Received'],
         ];
 
         foreach ($orderDefs as $def) {
@@ -243,7 +569,7 @@ class DatabaseSeeder extends Seeder
                 $soService->completeWithPayment($order);
             }
         }
-        $this->command->info('✓ Order Servis (6) di-seed');
+        $this->command->info('✓ Order Servis (26 orders: 20 completed, 2 done, 2 in-progress, 2 received) di-seed');
     }
 
     private function seedPayroll(): void
@@ -280,5 +606,39 @@ class DatabaseSeeder extends Seeder
             }
         }
         $this->command->info('✓ Pengeluaran (7) di-seed');
+    }
+
+    private function seedFinancialPeriods(): void
+    {
+        // Only create periods for months that actually have transactions.
+        // Transaction window: 6 months ago (now()->subMonths(6)) through current month.
+        // Today = May 2026, so: Nov 2025, Dec 2025, Jan 2026, Feb 2026, Mar 2026, Apr 2026, May 2026
+        // Months older than 3 months from now are closed; recent ones stay open.
+
+        $transactionMonths = [];
+        for ($i = 6; $i >= 0; $i--) {
+            $date = now()->subMonths($i);
+            $transactionMonths[] = [
+                'name'       => $date->format('F Y'),
+                'start_date' => $date->copy()->startOfMonth()->toDateString(),
+                'end_date'   => $date->copy()->endOfMonth()->toDateString(),
+                // Close months that are fully in the past (more than 1 month ago)
+                'status'     => $i > 1 ? 'closed' : 'open',
+                'closed_by'  => $i > 1 ? 1 : null,
+                'closed_at'  => $i > 1 ? $date->copy()->endOfMonth()->endOfDay() : null,
+            ];
+        }
+
+        foreach ($transactionMonths as $period) {
+            FinancialPeriod::firstOrCreate(
+                ['start_date' => $period['start_date'], 'end_date' => $period['end_date']],
+                $period
+            );
+        }
+
+        $closedCount = collect($transactionMonths)->where('status', 'closed')->count();
+        $openCount   = collect($transactionMonths)->where('status', 'open')->count();
+
+        $this->command->info("✓ Financial Periods (" . count($transactionMonths) . " periods: $closedCount closed, $openCount open) di-seed");
     }
 }

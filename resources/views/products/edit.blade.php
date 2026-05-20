@@ -12,7 +12,7 @@
             <div class="form-row">
                 <div class="form-group">
                     <label class="form-label">SKU <span class="required">*</span></label>
-                    <input name="sku" value="{{ old('sku', $product->sku) }}" class="form-control @error('sku') is-invalid @enderror" required>
+                    <input name="sku" value="{{ $product->sku }}" class="form-control @error('sku') is-invalid @enderror" readonly required>
                     @error('sku')<div class="invalid-feedback">{{ $message }}</div>@enderror
                 </div>
                 <div class="form-group">

@@ -3,10 +3,26 @@
 namespace App\Http\Controllers;
 
 use App\Models\Product;
+use App\Services\AuditService;
+use App\Services\InventoryLedgerService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class ProductController extends Controller
 {
+    public function __construct(
+        private AuditService $auditService,
+        private InventoryLedgerService $inventoryLedger
+    ) {}
+
+    private const CATEGORY_PREFIX = [
+        'Laptop' => 'LAP',
+        'Printer' => 'PRT',
+        'CPU' => 'CPU',
+        'Accessories' => 'ACC',
+        'Other' => 'OTH',
+    ];
+
     public function index(Request $request)
     {
         $query = Product::query();
@@ -17,22 +33,25 @@ class ProductController extends Controller
         if ($request->category) {
             $query->where('category', $request->category);
         }
-        $products = $query->orderBy('category')->orderBy('name')->paginate(20)->withQueryString();
+        $products = $query->orderBy('category')->orderBy('sku')->orderBy('name')->paginate(20)->withQueryString();
         $lowCount = Product::whereColumn('stock', '<=', 'min_stock')->count();
         return view('products.index', compact('products', 'lowCount'));
     }
 
     public function create()
     {
-        // Auto-suggest SKU prefix
-        $autoSku = 'PRD-' . str_pad(Product::count() + 1, 3, '0', STR_PAD_LEFT);
-        return view('products.create', compact('autoSku'));
+        $autoSkus = collect(array_keys(self::CATEGORY_PREFIX))
+            ->mapWithKeys(fn($category) => [$category => $this->previewSku($category)])
+            ->all();
+        $autoSku = $autoSkus['Laptop'];
+
+        return view('products.create', compact('autoSku', 'autoSkus'));
     }
 
     public function store(Request $request)
     {
         $data = $request->validate([
-            'sku'         => 'required|string|max:50|unique:products,sku',
+            'sku'         => 'nullable|string|max:50',
             'name'        => 'required|string|max:150',
             'category'    => 'required|in:Laptop,Printer,CPU,Accessories,Other',
             'unit'        => 'required|string|max:20',
@@ -42,7 +61,27 @@ class ProductController extends Controller
             'min_stock'   => 'required|integer|min:0',
             'description' => 'nullable|string',
         ]);
-        Product::create($data);
+        $product = DB::transaction(function () use ($data) {
+            $data['sku'] = $this->generateSku($data['category']);
+            $product = Product::create($data);
+            if ((int) $product->stock > 0) {
+                $this->inventoryLedger->recordMovement(
+                    $product,
+                    now()->toDateString(),
+                    'opening',
+                    (int) $product->stock,
+                    0,
+                    (float) $product->cost_price,
+                    'OpeningBalance',
+                    $product->id,
+                    'Opening stock quantity and valuation'
+                );
+            }
+            $this->auditService->logCreation('inventory', $product, "Product {$product->sku} created");
+
+            return $product;
+        });
+
         return redirect()->route('products.index')->with('success', "Product '{$data['name']}' added successfully.");
     }
 
@@ -51,10 +90,39 @@ class ProductController extends Controller
         return view('products.edit', compact('product'));
     }
 
+    public function show(Product $product)
+    {
+        $movements = $product->inventoryMovements()
+            ->orderByDesc('movement_date')
+            ->orderByDesc('id')
+            ->limit(20)
+            ->get();
+
+        $purchaseItems = $product->purchaseItems()
+            ->with('purchase.supplier')
+            ->orderByDesc('created_at')
+            ->limit(10)
+            ->get();
+
+        $saleItems = $product->saleItems()
+            ->with('sale.customer')
+            ->orderByDesc('created_at')
+            ->limit(10)
+            ->get();
+
+        // Primary supplier (most recent purchase)
+        $primarySupplier = \App\Models\Supplier::whereHas('purchases.items', fn($q) => $q->where('product_id', $product->id))
+            ->withCount(['purchases as purchase_count' => fn($q) => $q->whereHas('items', fn($q2) => $q2->where('product_id', $product->id))])
+            ->orderByDesc('purchase_count')
+            ->first();
+
+        return view('products.show', compact('product', 'movements', 'purchaseItems', 'saleItems', 'primarySupplier'));
+    }
+
     public function update(Request $request, Product $product)
     {
         $data = $request->validate([
-            'sku'         => 'required|string|max:50|unique:products,sku,' . $product->id,
+            'sku'         => 'nullable|string|max:50',
             'name'        => 'required|string|max:150',
             'category'    => 'required|in:Laptop,Printer,CPU,Accessories,Other',
             'unit'        => 'required|string|max:20',
@@ -64,13 +132,47 @@ class ProductController extends Controller
             'min_stock'   => 'required|integer|min:0',
             'description' => 'nullable|string',
         ]);
+        $data['sku'] = $product->sku;
+        $oldValues = $product->toArray();
         $product->update($data);
+        $this->auditService->logUpdate('inventory', $product, $oldValues, "Product {$product->sku} updated");
+
         return redirect()->route('products.index')->with('success', "Product '{$product->name}' updated successfully.");
     }
 
     public function destroy(Product $product)
     {
+        $oldValues = $product->toArray();
         $product->delete();
+        $this->auditService->log('inventory', 'soft_delete', $product, $oldValues, null, "Product {$product->sku} archived");
+
         return redirect()->route('products.index')->with('success', 'Product deleted.');
+    }
+
+    private function previewSku(string $category): string
+    {
+        $prefix = self::CATEGORY_PREFIX[$category] ?? 'OTH';
+        $lastSku = Product::withTrashed()
+            ->where('sku', 'like', $prefix . '-%')
+            ->orderByDesc(DB::raw("CAST(SUBSTRING(sku, " . (strlen($prefix) + 2) . ") AS UNSIGNED)"))
+            ->value('sku');
+
+        $next = 1;
+        if ($lastSku && preg_match('/(\d+)$/', $lastSku, $matches)) {
+            $next = (int) $matches[1] + 1;
+        }
+
+        return $prefix . '-' . str_pad($next, 3, '0', STR_PAD_LEFT);
+    }
+
+    private function generateSku(string $category): string
+    {
+        $prefix = self::CATEGORY_PREFIX[$category] ?? 'OTH';
+        $lastNumber = Product::withTrashed()
+            ->where('sku', 'like', $prefix . '-%')
+            ->lockForUpdate()
+            ->max(DB::raw("CAST(SUBSTRING(sku, " . (strlen($prefix) + 2) . ") AS UNSIGNED)"));
+
+        return $prefix . '-' . str_pad(((int) $lastNumber) + 1, 3, '0', STR_PAD_LEFT);
     }
 }

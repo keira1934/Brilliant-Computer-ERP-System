@@ -33,7 +33,7 @@
             $balanced = abs($totalD - $totalC) < 0.01;
             @endphp
             <tr>
-                <td class="td-muted font-mono">{{ $entry->entry_date }}</td>
+                <td class="td-muted font-mono">{{ $entry->entry_date?->format('d/m/Y') }}<br><span style="font-size:11px">{{ $entry->created_at?->timezone(config('app.timezone'))->format('H:i:s') }}</span></td>
                 <td class="font-mono" style="font-size:12px">{{ $entry->reference_type }}-{{ $entry->reference_id }}</td>
                 <td class="td-primary">{{ $entry->description }}</td>
                 <td class="text-right fw-semibold">Rp {{ number_format($totalD,0,',','.') }}</td>

@@ -14,7 +14,7 @@ class SaleController extends Controller
 
     public function index(Request $request)
     {
-        $query = Sale::with('customer')->latest();
+        $query = Sale::with('customer')->orderByDesc('sale_date')->orderByDesc('id');
         if ($request->from)   $query->where('sale_date', '>=', $request->from);
         if ($request->to)     $query->where('sale_date', '<=', $request->to);
         if ($request->search) $query->where('sale_number', 'like', "%{$request->search}%");
@@ -38,6 +38,8 @@ class SaleController extends Controller
             'items.*.product_id'  => 'required|exists:products,id',
             'items.*.qty'         => 'required|integer|min:1',
             'items.*.unit_price'  => 'required|numeric|min:0',
+            'is_credit_sale'      => 'nullable|boolean',
+            'payment_terms_days'  => 'nullable|integer|min:0|max:365',
         ]);
 
         try {
@@ -51,7 +53,7 @@ class SaleController extends Controller
 
     public function show(Sale $sale)
     {
-        $sale->load('customer', 'items.product');
+        $sale->load('customer', 'items.product', 'arInvoices.payments');
         return view('sales.show', compact('sale'));
     }
 }

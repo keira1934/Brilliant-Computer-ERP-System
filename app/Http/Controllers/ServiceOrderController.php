@@ -13,7 +13,7 @@ class ServiceOrderController extends Controller
 
     public function index(Request $request)
     {
-        $query = ServiceOrder::with('customer')->latest();
+        $query = ServiceOrder::with('customer')->orderByDesc('received_at')->orderByDesc('id');
         if ($request->status) {
             $query->where('status', $request->status);
         }

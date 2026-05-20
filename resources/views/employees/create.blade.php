@@ -12,9 +12,9 @@
             <div class="form-row">
                 <div class="form-group">
                     <label class="form-label">Employee Code <span class="required">*</span></label>
-                    <input name="employee_code" id="employee_code" value="{{ old('employee_code', $autoCode) }}" class="form-control @error('employee_code') is-invalid @enderror" required placeholder="{{ $autoCode }}">
+                    <input name="employee_code" id="employee_code" value="{{ old('employee_code', $autoCode) }}" class="form-control @error('employee_code') is-invalid @enderror" readonly required placeholder="{{ $autoCode }}">
                     @error('employee_code')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                    <div class="form-text">Auto-generated. You may change it to a custom code.</div>
+                    <div class="form-text">Auto-generated when the employee is saved.</div>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Full Name <span class="required">*</span></label>

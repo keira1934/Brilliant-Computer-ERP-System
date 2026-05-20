@@ -12,7 +12,7 @@
             <div class="form-row">
                 <div class="form-group">
                     <label class="form-label">Employee Code <span class="required">*</span></label>
-                    <input name="employee_code" value="{{ old('employee_code', $employee->employee_code) }}" class="form-control @error('employee_code') is-invalid @enderror" required>
+                    <input name="employee_code" value="{{ $employee->employee_code }}" class="form-control @error('employee_code') is-invalid @enderror" readonly required>
                     @error('employee_code')<div class="invalid-feedback">{{ $message }}</div>@enderror
                 </div>
                 <div class="form-group">
@@ -60,7 +60,8 @@
             <div class="form-group">
                 <label class="form-label">Status</label>
                 <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-                    <input type="checkbox" name="is_active" value="1" {{ $employee->is_active ? 'checked' : '' }} style="width:18px;height:18px">
+                    <input type="hidden" name="is_active" value="0">
+                    <input type="checkbox" name="is_active" value="1" {{ old('is_active', $employee->is_active) ? 'checked' : '' }} style="width:18px;height:18px">
                     <span>Active Employee</span>
                 </label>
             </div>

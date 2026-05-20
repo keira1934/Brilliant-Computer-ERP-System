@@ -32,6 +32,16 @@
                     <option value="Other"    {{ old('payment_method')==='Other'   ?'selected':'' }}>Other</option>
                 </select>
             </div>
+            <div class="form-row">
+                <label class="form-check" style="display:flex;gap:8px;align-items:center;margin-top:4px">
+                    <input type="checkbox" name="is_credit_sale" value="1" {{ old('is_credit_sale') ? 'checked' : '' }}>
+                    <span>Invoice on credit / collect later</span>
+                </label>
+                <div class="form-group">
+                    <label class="form-label">Terms Days</label>
+                    <input name="payment_terms_days" type="number" min="0" max="365" value="{{ old('payment_terms_days',30) }}" class="form-control">
+                </div>
+            </div>
             <div id="payment-other-wrap" style="display:none">
                 <div class="form-group">
                     <label class="form-label">Payment Description <span class="required">*</span></label>

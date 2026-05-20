@@ -10,10 +10,14 @@ class Sale extends Model
 {
     protected $fillable = [
         'sale_number', 'customer_id', 'sale_date',
-        'subtotal', 'discount', 'total', 'payment_method', 'notes',
+        'subtotal', 'discount', 'total', 'payment_method',
+        'is_credit_sale', 'payment_terms_days', 'notes',
     ];
 
-    protected $casts = ['sale_date' => 'date'];
+    protected $casts = [
+        'sale_date' => 'date',
+        'is_credit_sale' => 'boolean',
+    ];
 
     public function customer(): BelongsTo
     {
@@ -23,5 +27,10 @@ class Sale extends Model
     public function items(): HasMany
     {
         return $this->hasMany(SaleItem::class);
+    }
+
+    public function arInvoices(): HasMany
+    {
+        return $this->hasMany(ArInvoice::class);
     }
 }

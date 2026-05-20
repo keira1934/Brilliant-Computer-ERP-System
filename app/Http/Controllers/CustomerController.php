@@ -3,10 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\Customer;
+use App\Services\AuditService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class CustomerController extends Controller
 {
+    public function __construct(private AuditService $auditService) {}
+
     public function index(Request $request)
     {
         $query = Customer::query();
@@ -15,8 +19,41 @@ class CustomerController extends Controller
                   ->orWhere('phone', 'like', "%{$request->search}%")
                   ->orWhere('email', 'like', "%{$request->search}%");
         }
-        $customers = $query->latest()->paginate(15)->withQueryString();
+        $customers = $query->orderBy('name')->paginate(15)->withQueryString();
         return view('customers.index', compact('customers'));
+    }
+
+    public function show(Customer $customer)
+    {
+        $sales = $customer->sales()
+            ->orderByDesc('sale_date')
+            ->orderByDesc('id')
+            ->limit(20)
+            ->get();
+
+        $serviceOrders = $customer->serviceOrders()
+            ->orderByDesc('received_at')
+            ->orderByDesc('id')
+            ->limit(10)
+            ->get();
+
+        $arInvoices = $customer->arInvoices()
+            ->orderByDesc('invoice_date')
+            ->orderByDesc('id')
+            ->limit(10)
+            ->get();
+
+        $totalSales        = $customer->sales()->sum('total');
+        $totalTransactions = $customer->sales()->count();
+        $totalServiceOrders= $customer->serviceOrders()->count();
+        $outstandingAR     = $customer->arInvoices()
+            ->whereIn('status', ['Open', 'Partially Paid'])
+            ->sum(\Illuminate\Support\Facades\DB::raw('total - paid_amount'));
+
+        return view('customers.show', compact(
+            'customer', 'sales', 'serviceOrders', 'arInvoices',
+            'totalSales', 'totalTransactions', 'totalServiceOrders', 'outstandingAR'
+        ));
     }
 
     public function create()
@@ -33,7 +70,9 @@ class CustomerController extends Controller
             'address' => 'required|string',
             'notes'   => 'nullable|string',
         ]);
-        Customer::create($data);
+        $customer = Customer::create($data);
+        $this->auditService->logCreation('customer', $customer, "Customer {$customer->name} created");
+
         return redirect()->route('customers.index')->with('success', 'Customer added successfully.');
     }
 
@@ -51,13 +90,19 @@ class CustomerController extends Controller
             'address' => 'required|string',
             'notes'   => 'nullable|string',
         ]);
+        $oldValues = $customer->toArray();
         $customer->update($data);
+        $this->auditService->logUpdate('customer', $customer, $oldValues, "Customer {$customer->name} updated");
+
         return redirect()->route('customers.index')->with('success', 'Customer updated successfully.');
     }
 
     public function destroy(Customer $customer)
     {
+        $oldValues = $customer->toArray();
         $customer->delete();
+        $this->auditService->log('customer', 'soft_delete', $customer, $oldValues, null, "Customer {$customer->name} archived");
+
         return redirect()->route('customers.index')->with('success', 'Customer deleted.');
     }
 }
