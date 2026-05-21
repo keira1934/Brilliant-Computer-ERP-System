@@ -54,9 +54,27 @@
     </div>
     <div class="table-wrap">
         <table>
-            <thead><tr><th>Invoice</th><th>Customer</th><th>Date</th><th>Due</th><th class="text-right">Total</th><th class="text-right">Paid</th><th class="text-right">Outstanding</th><th>Status</th><th></th></tr></thead>
+            <thead>
+                <tr>
+                    <th>Invoice</th>
+                    <th>Customer</th>
+                    <th>Date</th>
+                    <th>Due</th>
+                    <th class="text-right">Total</th>
+                    <th class="text-right">Paid</th>
+                    <th class="text-right">Outstanding</th>
+                    <th>Status</th>
+                    <th style="text-align:center">Payment Verification</th>
+                    <th></th>
+                </tr>
+            </thead>
             <tbody>
             @forelse($invoices as $invoice)
+            @php
+                $pendingPayment  = $invoice->payments->firstWhere('status', 'Pending Verification');
+                $verifiedPayment = $invoice->payments->firstWhere('status', 'Verified');
+                $rejectedPayment = $invoice->payments->firstWhere('status', 'Rejected');
+            @endphp
             <tr>
                 <td class="td-primary font-mono">{{ $invoice->invoice_number }}</td>
                 <td>{{ $invoice->customer?->name ?? 'Walk-in Customer' }}</td>
@@ -65,11 +83,71 @@
                 <td class="text-right">Rp {{ number_format($invoice->total,0,',','.') }}</td>
                 <td class="text-right td-muted">Rp {{ number_format($invoice->paid_amount,0,',','.') }}</td>
                 <td class="text-right fw-bold">Rp {{ number_format($invoice->outstanding,0,',','.') }}</td>
-                <td><span class="badge {{ $invoice->status === 'Paid' ? 'badge-success' : 'badge-warning' }}">{{ $invoice->status }}</span></td>
-                <td><a href="{{ route('accounts-receivable.show', $invoice) }}" class="btn btn-sm btn-outline"><i class="bi bi-eye"></i></a></td>
+                <td>
+                    @php
+                        $cls = match($invoice->status) {
+                            'Paid'           => 'badge-success',
+                            'Partially Paid' => 'badge-warning',
+                            'Cancelled'      => 'badge-danger',
+                            default          => 'badge-gray',
+                        };
+                    @endphp
+                    <span class="badge {{ $cls }}">{{ $invoice->status }}</span>
+                </td>
+
+                {{-- ── Payment Verification column ── --}}
+                <td style="text-align:center">
+                    @if($pendingPayment)
+                        {{-- Has a payment waiting for Finance — highest priority --}}
+                        <span title="Payment pending Finance/Manager verification"
+                              style="display:inline-flex; align-items:center; gap:5px;
+                                     color:var(--warning-700,#b45309); font-size:13px; font-weight:600">
+                            <i class="bi bi-clock-history" style="font-size:1.1rem"></i> Pending
+                        </span>
+
+                    @elseif($rejectedPayment)
+                        {{-- A payment was rejected — show rejected regardless of invoice status --}}
+                        <span title="Payment rejected: {{ $rejectedPayment->rejection_reason }}"
+                              style="display:inline-flex; align-items:center; gap:5px;
+                                     color:var(--red-600,#dc2626); font-size:13px; font-weight:600">
+                            <i class="bi bi-x-circle-fill" style="font-size:1.1rem"></i> Rejected
+                        </span>
+
+                    @elseif($invoice->status === 'Paid')
+                        {{-- Fully paid, no pending/rejected --}}
+                        <span title="All payments verified"
+                              style="display:inline-flex; align-items:center; gap:5px;
+                                     color:var(--green-700,#15803d); font-size:13px; font-weight:600">
+                            <i class="bi bi-check-circle-fill" style="font-size:1.1rem"></i> Verified
+                        </span>
+
+                    @elseif($invoice->status === 'Partially Paid')
+                        {{-- Some verified, still outstanding --}}
+                        <span title="Partially collected & verified"
+                              style="display:inline-flex; align-items:center; gap:5px;
+                                     color:var(--blue-600,#2563eb); font-size:13px; font-weight:600">
+                            <i class="bi bi-check-circle" style="font-size:1.1rem"></i> Partial
+                        </span>
+
+                    @else
+                        {{-- Open, no payment submitted yet --}}
+                        <span style="color:var(--gray-400); font-size:13px">
+                            <i class="bi bi-dash-circle"></i> —
+                        </span>
+                    @endif
+                </td>
+
+                <td>
+                    <a href="{{ route('accounts-receivable.show', $invoice) }}"
+                       class="btn btn-sm btn-outline"><i class="bi bi-eye"></i></a>
+                </td>
             </tr>
             @empty
-            <tr><td colspan="9"><div class="empty-state"><i class="bi bi-receipt"></i><p>No receivable invoices found</p></div></td></tr>
+            <tr>
+                <td colspan="10">
+                    <div class="empty-state"><i class="bi bi-receipt"></i><p>No receivable invoices found</p></div>
+                </td>
+            </tr>
             @endforelse
             </tbody>
         </table>
