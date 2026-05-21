@@ -64,6 +64,13 @@ Route::middleware('auth')->group(function () {
         Route::get('accounts-receivable', [AccountsReceivableController::class, 'index'])->name('accounts-receivable.index');
         Route::get('accounts-receivable/{invoice}', [AccountsReceivableController::class, 'show'])->name('accounts-receivable.show');
         Route::post('accounts-receivable/{invoice}/payments', [AccountsReceivableController::class, 'storePayment'])->name('accounts-receivable.payments.store');
+        // Payment verification — Finance/Manager only
+        Route::post('accounts-receivable/payments/{payment}/verify', [AccountsReceivableController::class, 'verifyPayment'])
+            ->middleware('role:finance,manager')
+            ->name('accounts-receivable.payments.verify');
+        Route::post('accounts-receivable/payments/{payment}/reject', [AccountsReceivableController::class, 'rejectPayment'])
+            ->middleware('role:finance,manager')
+            ->name('accounts-receivable.payments.reject');
     });
 
     /*

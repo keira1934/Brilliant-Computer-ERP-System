@@ -8,6 +8,19 @@
     </div>
 </div>
 
+{{-- Pending verifications alert — Finance/Manager only --}}
+@if($pendingVerifications > 0 && auth()->user()->hasRole('finance','manager'))
+<div class="alert" style="background:var(--warning-50,#fffbeb); border:1px solid var(--warning-300,#fcd34d);
+     color:var(--warning-800,#92400e); border-radius:10px; display:flex; align-items:center;
+     gap:12px; padding:14px 18px; margin-bottom:20px">
+    <i class="bi bi-clock-history" style="font-size:1.3rem; flex-shrink:0"></i>
+    <div>
+        <strong>{{ $pendingVerifications }} payment{{ $pendingVerifications > 1 ? 's' : '' }} pending your verification.</strong>
+        Open the relevant invoice below to verify or reject.
+    </div>
+</div>
+@endif
+
 <div class="grid-3 mb-5">
     <div class="metric-card"><span class="metric-label">AR Ledger Balance</span><span class="metric-value">Rp {{ number_format($ledgerBalance,0,',','.') }}</span></div>
     <div class="metric-card"><span class="metric-label">Invoice Outstanding</span><span class="metric-value">Rp {{ number_format($invoiceOutstanding,0,',','.') }}</span></div>
