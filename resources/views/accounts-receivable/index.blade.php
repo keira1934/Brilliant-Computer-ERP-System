@@ -42,11 +42,14 @@
             <div class="search-wrap"><i class="bi bi-search"></i>
                 <input name="search" value="{{ request('search') }}" placeholder="Invoice or customer..." class="form-control" style="width:240px">
             </div>
-            <select name="status" class="form-control" style="width:160px">
+            <select name="status" class="form-control" style="width:200px">
                 <option value="">All Status</option>
-                @foreach(['Open','Partially Paid','Paid','Cancelled'] as $s)
-                <option value="{{ $s }}" {{ request('status')===$s?'selected':'' }}>{{ $s }}</option>
-                @endforeach
+                <option value="Open"             {{ request('status')==='Open'             ?'selected':'' }}>Open</option>
+                <option value="Pending Verification" {{ request('status')==='Pending Verification' ?'selected':'' }}>Pending Verification</option>
+                <option value="Payment Rejected" {{ request('status')==='Payment Rejected' ?'selected':'' }}>Payment Rejected</option>
+                <option value="Partially Paid"   {{ request('status')==='Partially Paid'   ?'selected':'' }}>Partial & Verified</option>
+                <option value="Paid"             {{ request('status')==='Paid'             ?'selected':'' }}>Paid & Verified</option>
+                <option value="Cancelled"        {{ request('status')==='Cancelled'        ?'selected':'' }}>Cancelled</option>
             </select>
             <input type="date" name="as_of" value="{{ $asOf }}" class="form-control" style="width:160px">
             <button class="btn btn-secondary"><i class="bi bi-funnel"></i> Filter</button>
@@ -63,17 +66,41 @@
                     <th class="text-right">Total</th>
                     <th class="text-right">Paid</th>
                     <th class="text-right">Outstanding</th>
-                    <th>Status</th>
-                    <th style="text-align:center">Payment Verification</th>
+                    <th style="text-align:center">Status</th>
                     <th></th>
                 </tr>
             </thead>
             <tbody>
             @forelse($invoices as $invoice)
             @php
-                $pendingPayment  = $invoice->payments->firstWhere('status', 'Pending Verification');
-                $verifiedPayment = $invoice->payments->firstWhere('status', 'Verified');
-                $rejectedPayment = $invoice->payments->firstWhere('status', 'Rejected');
+                // Use the LATEST payment to determine verification state
+                $latestPayment = $invoice->payments->sortByDesc('created_at')->first();
+
+                if ($latestPayment && $latestPayment->isPending()) {
+                    $combinedLabel = 'Pending Verification';
+                    $combinedIcon  = 'bi-clock-history';
+                    $combinedStyle = 'background:#fffbeb; color:#b45309; border:1px solid #fcd34d';
+                } elseif ($latestPayment && $latestPayment->isRejected()) {
+                    $combinedLabel = 'Payment Rejected';
+                    $combinedIcon  = 'bi-x-circle-fill';
+                    $combinedStyle = 'background:#fef2f2; color:#dc2626; border:1px solid #fca5a5';
+                } elseif ($invoice->status === 'Paid') {
+                    $combinedLabel = 'Paid & Verified';
+                    $combinedIcon  = 'bi-check-circle-fill';
+                    $combinedStyle = 'background:#f0fdf4; color:#15803d; border:1px solid #86efac';
+                } elseif ($invoice->status === 'Partially Paid') {
+                    $combinedLabel = 'Partial & Verified';
+                    $combinedIcon  = 'bi-check-circle';
+                    $combinedStyle = 'background:#eff6ff; color:#2563eb; border:1px solid #93c5fd';
+                } elseif ($invoice->status === 'Cancelled') {
+                    $combinedLabel = 'Cancelled';
+                    $combinedIcon  = 'bi-slash-circle';
+                    $combinedStyle = 'background:#f9fafb; color:#6b7280; border:1px solid #d1d5db';
+                } else {
+                    $combinedLabel = 'Open';
+                    $combinedIcon  = 'bi-circle';
+                    $combinedStyle = 'background:#f8fafc; color:#475569; border:1px solid #cbd5e1';
+                }
             @endphp
             <tr>
                 <td class="td-primary font-mono">{{ $invoice->invoice_number }}</td>
@@ -83,60 +110,14 @@
                 <td class="text-right">Rp {{ number_format($invoice->total,0,',','.') }}</td>
                 <td class="text-right td-muted">Rp {{ number_format($invoice->paid_amount,0,',','.') }}</td>
                 <td class="text-right fw-bold">Rp {{ number_format($invoice->outstanding,0,',','.') }}</td>
-                <td>
-                    @php
-                        $cls = match($invoice->status) {
-                            'Paid'           => 'badge-success',
-                            'Partially Paid' => 'badge-warning',
-                            'Cancelled'      => 'badge-danger',
-                            default          => 'badge-gray',
-                        };
-                    @endphp
-                    <span class="badge {{ $cls }}">{{ $invoice->status }}</span>
-                </td>
-
-                {{-- ── Payment Verification column ── --}}
                 <td style="text-align:center">
-                    @if($pendingPayment)
-                        {{-- Has a payment waiting for Finance — highest priority --}}
-                        <span title="Payment pending Finance/Manager verification"
-                              style="display:inline-flex; align-items:center; gap:5px;
-                                     color:var(--warning-700,#b45309); font-size:13px; font-weight:600">
-                            <i class="bi bi-clock-history" style="font-size:1.1rem"></i> Pending
-                        </span>
-
-                    @elseif($rejectedPayment)
-                        {{-- A payment was rejected — show rejected regardless of invoice status --}}
-                        <span title="Payment rejected: {{ $rejectedPayment->rejection_reason }}"
-                              style="display:inline-flex; align-items:center; gap:5px;
-                                     color:var(--red-600,#dc2626); font-size:13px; font-weight:600">
-                            <i class="bi bi-x-circle-fill" style="font-size:1.1rem"></i> Rejected
-                        </span>
-
-                    @elseif($invoice->status === 'Paid')
-                        {{-- Fully paid, no pending/rejected --}}
-                        <span title="All payments verified"
-                              style="display:inline-flex; align-items:center; gap:5px;
-                                     color:var(--green-700,#15803d); font-size:13px; font-weight:600">
-                            <i class="bi bi-check-circle-fill" style="font-size:1.1rem"></i> Verified
-                        </span>
-
-                    @elseif($invoice->status === 'Partially Paid')
-                        {{-- Some verified, still outstanding --}}
-                        <span title="Partially collected & verified"
-                              style="display:inline-flex; align-items:center; gap:5px;
-                                     color:var(--blue-600,#2563eb); font-size:13px; font-weight:600">
-                            <i class="bi bi-check-circle" style="font-size:1.1rem"></i> Partial
-                        </span>
-
-                    @else
-                        {{-- Open, no payment submitted yet --}}
-                        <span style="color:var(--gray-400); font-size:13px">
-                            <i class="bi bi-dash-circle"></i> —
-                        </span>
-                    @endif
+                    <span style="display:inline-flex; align-items:center; gap:5px; padding:4px 10px;
+                                 border-radius:20px; font-size:12px; font-weight:600; white-space:nowrap;
+                                 {{ $combinedStyle }}">
+                        <i class="bi {{ $combinedIcon }}"></i>
+                        {{ $combinedLabel }}
+                    </span>
                 </td>
-
                 <td>
                     <a href="{{ route('accounts-receivable.show', $invoice) }}"
                        class="btn btn-sm btn-outline"><i class="bi bi-eye"></i></a>
@@ -144,7 +125,7 @@
             </tr>
             @empty
             <tr>
-                <td colspan="10">
+                <td colspan="9">
                     <div class="empty-state"><i class="bi bi-receipt"></i><p>No receivable invoices found</p></div>
                 </td>
             </tr>

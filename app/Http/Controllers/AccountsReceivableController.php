@@ -21,10 +21,35 @@ class AccountsReceivableController extends Controller
         $query = ArInvoice::with('customer', 'sale', 'payments')
             ->orderByDesc('invoice_date')
             ->orderByDesc('id');
-        if ($request->status) $query->where('status', $request->status);
+
         if ($request->search) {
             $query->where('invoice_number', 'like', "%{$request->search}%")
                 ->orWhereHas('customer', fn($q) => $q->where('name', 'like', "%{$request->search}%"));
+        }
+
+        // Filter by combined status (invoice status + latest payment verification state)
+        if ($request->status) {
+            match($request->status) {
+                // Payment-level filters — look at the latest payment's status
+                'Pending Verification' => $query->whereHas('payments', fn($q) =>
+                    $q->where('status', 'Pending Verification')
+                      ->whereNotExists(fn($sub) =>
+                          $sub->from('ar_payments as newer')
+                              ->whereColumn('newer.ar_invoice_id', 'ar_payments.ar_invoice_id')
+                              ->whereRaw('newer.created_at > ar_payments.created_at')
+                      )
+                ),
+                'Payment Rejected' => $query->whereHas('payments', fn($q) =>
+                    $q->where('status', 'Rejected')
+                      ->whereNotExists(fn($sub) =>
+                          $sub->from('ar_payments as newer')
+                              ->whereColumn('newer.ar_invoice_id', 'ar_payments.ar_invoice_id')
+                              ->whereRaw('newer.created_at > ar_payments.created_at')
+                      )
+                ),
+                // Invoice-level filters
+                default => $query->where('status', $request->status),
+            };
         }
 
         $invoices = $query->paginate(20)->withQueryString();

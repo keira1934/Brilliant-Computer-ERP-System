@@ -171,11 +171,13 @@ class AccountsReceivableService
         });
     }
 
-    // ── Step 2b: Finance/Manager rejects → back to Open ──────────────────
+    // ── Step 2b: Finance/Manager rejects → recalculate invoice ──────────
 
     /**
      * Finance or Manager rejects the payment (e.g. cash not actually received,
-     * wrong amount, suspicious entry). Invoice stays Open, no journal posted.
+     * wrong amount, suspicious entry).
+     * The invoice paid_amount is recalculated from VERIFIED payments only,
+     * so the invoice status correctly reverts if needed. No journal is posted.
      */
     public function rejectPayment(ArPayment $payment, string $reason): ArPayment
     {
@@ -186,11 +188,33 @@ class AccountsReceivableService
                 throw new \RuntimeException("Payment {$payment->payment_number} is not pending verification.");
             }
 
+            // Mark as rejected
             $payment->update([
                 'status'           => ArPayment::STATUS_REJECTED,
                 'verified_by'      => Auth::id(),
                 'verified_at'      => now(),
                 'rejection_reason' => $reason,
+            ]);
+
+            // Recalculate invoice from VERIFIED payments only
+            $invoice = ArInvoice::whereKey($payment->ar_invoice_id)->lockForUpdate()->firstOrFail();
+
+            $verifiedTotal = round(
+                (float) $invoice->payments()
+                    ->where('status', ArPayment::STATUS_VERIFIED)
+                    ->sum('amount'),
+                2
+            );
+
+            $correctStatus = match(true) {
+                $verifiedTotal <= 0                         => 'Open',
+                $verifiedTotal >= (float) $invoice->total   => 'Paid',
+                default                                     => 'Partially Paid',
+            };
+
+            $invoice->update([
+                'paid_amount' => $verifiedTotal,
+                'status'      => $correctStatus,
             ]);
 
             $this->auditService->logStatusChange('accounts_receivable', $payment, 'reject',
