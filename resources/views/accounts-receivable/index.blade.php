@@ -22,9 +22,37 @@
 @endif
 
 <div class="grid-3 mb-5">
-    <div class="metric-card"><span class="metric-label">AR Ledger Balance</span><span class="metric-value">Rp {{ number_format($ledgerBalance,0,',','.') }}</span></div>
-    <div class="metric-card"><span class="metric-label">Invoice Outstanding</span><span class="metric-value">Rp {{ number_format($invoiceOutstanding,0,',','.') }}</span></div>
-    <div class="metric-card"><span class="metric-label">Opening / Previous Balance</span><span class="metric-value">Rp {{ number_format($openingReceivable,0,',','.') }}</span></div>
+    <div class="metric-card">
+        <span class="metric-label">AR Ledger Balance</span>
+        <span class="metric-value">Rp {{ number_format($ledgerBalance,0,',','.') }}</span>
+        <span class="metric-sub" style="font-size:11px; color:var(--gray-400)">From posted journal entries (acct 1-1200)</span>
+    </div>
+    <div class="metric-card">
+        <span class="metric-label">Invoice Outstanding</span>
+        <span class="metric-value">Rp {{ number_format($invoiceOutstanding,0,',','.') }}</span>
+        <span class="metric-sub" style="font-size:11px; color:var(--gray-400)">Sum of open &amp; partial invoices</span>
+    </div>
+    <div class="metric-card" style="{{ round($ledgerBalance,2) !== round($invoiceOutstanding,2) ? 'border:1px solid #fca5a5' : '' }}">
+        <span class="metric-label">
+            @if(round($ledgerBalance,2) === round($invoiceOutstanding,2))
+                <i class="bi bi-check-circle-fill" style="color:#15803d"></i> Balanced
+            @else
+                <i class="bi bi-exclamation-triangle-fill" style="color:#b45309"></i> Unmatched
+            @endif
+        </span>
+        <span class="metric-value" style="font-size:18px; color:{{ round($ledgerBalance,2) === round($invoiceOutstanding,2) ? '#15803d' : '#b45309' }}">
+            Rp {{ number_format(abs($ledgerBalance - $invoiceOutstanding),0,',','.') }}
+        </span>
+        <span class="metric-sub" style="font-size:11px; color:var(--gray-400)">
+            @if(round($ledgerBalance,2) === round($invoiceOutstanding,2))
+                Ledger matches invoices
+            @elseif($ledgerBalance > $invoiceOutstanding)
+                Ledger &gt; Invoices (untracked receivable)
+            @else
+                Invoices &gt; Ledger (pending verifications not yet posted)
+            @endif
+        </span>
+    </div>
 </div>
 
 <div class="grid-5 mb-5">

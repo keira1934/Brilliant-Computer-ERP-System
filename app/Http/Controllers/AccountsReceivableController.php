@@ -63,9 +63,18 @@ class AccountsReceivableController extends Controller
             $aging[$invoice->agingBucket($asOf)] += $invoice->outstanding;
         }
 
-        $ledgerBalance      = ChartOfAccount::where('code', '1-1200')->first()?->getBalance(null, $asOf) ?? 0;
+        // AR Ledger Balance = account 1-1200 balance from posted journals (as-of date)
+        // This reflects: all AR invoices created (Dr) minus all VERIFIED payments (Cr)
+        $ledgerBalance = ChartOfAccount::where('code', '1-1200')->first()?->getBalance(null, $asOf) ?? 0;
+
+        // Invoice Outstanding = sum of outstanding on Open + Partially Paid invoices
+        // This should equal ledgerBalance when all data is consistent.
         $invoiceOutstanding = $agingInvoices->sum('outstanding');
-        $openingReceivable  = max(0, round($ledgerBalance - $invoiceOutstanding, 2));
+
+        // Unmatched difference = ledger entries that don't correspond to any open invoice
+        // (e.g. opening balance entries, or invoices fully paid before this system)
+        // Only show if positive (ledger > invoices = unaccounted receivable)
+        $openingReceivable = max(0, round($ledgerBalance - $invoiceOutstanding, 2));
         if ($openingReceivable > 0) {
             $aging['90+'] += $openingReceivable;
         }
